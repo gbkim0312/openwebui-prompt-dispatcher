@@ -60,6 +60,12 @@ class SendPrompt:
             )
         )
         if not response.content.strip():
+            if command.tool_ids:
+                raise ValueError(
+                    "Open WebUI가 선택한 툴 호출 뒤 최종 텍스트를 반환하지 않았습니다. "
+                    "현재 Open WebUI 서버에서 해당 툴의 API 실행이 완료되는지 확인하세요. "
+                    f"선택 툴: {', '.join(command.tool_ids)}"
+                )
             raise ValueError("Open WebUI returned empty content")
         if command.dry_run:
             logger.info(
