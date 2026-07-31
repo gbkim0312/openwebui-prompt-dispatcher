@@ -45,7 +45,11 @@ class SendPrompt:
         if not command.dry_run and not command.destinations:
             raise ValueError("At least one channel is required when dry run is disabled")
         logger.info(
-            "event=instant_prompt_started model=%s dry_run=%s", command.model, command.dry_run
+            "event=instant_prompt_started model=%s dry_run=%s skill_count=%s tool_count=%s",
+            command.model,
+            command.dry_run,
+            len(command.skill_ids),
+            len(command.tool_ids),
         )
         response = self._openwebui.generate(
             OpenWebUiRequest(

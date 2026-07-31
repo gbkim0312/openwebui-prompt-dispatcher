@@ -44,6 +44,18 @@ class HttpOpenWebUiAdapter:
             return OpenWebUiResponse(
                 content=content, model=data.get("model", request.model), tool_calls=calls
             )
+        except httpx.HTTPStatusError as exc:
+            detail = ""
+            try:
+                payload = exc.response.json()
+                if isinstance(payload, dict):
+                    detail = str(payload.get("detail") or payload.get("message") or "")
+            except ValueError:
+                pass
+            suffix = f": {detail[:500]}" if detail else ""
+            raise OpenWebUiError(
+                f"Open WebUI generation failed (HTTP {exc.response.status_code}){suffix}"
+            ) from exc
         except (httpx.HTTPError, KeyError, TypeError, ValueError) as exc:
             raise OpenWebUiError("Open WebUI generation failed") from exc
 
