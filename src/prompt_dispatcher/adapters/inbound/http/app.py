@@ -27,6 +27,7 @@ class InstantPromptPayload(BaseModel):
     title: str = "즉시 프롬프트"
     skill_ids: list[str] = Field(default_factory=list)
     tool_ids: list[str] = Field(default_factory=list)
+    timeout_seconds: int = Field(default=600, gt=0)
     channels: list[dict[str, str]] = Field(default_factory=list)
     dry_run: bool = False
 
@@ -211,6 +212,7 @@ def create_app(container: ApplicationContainer) -> FastAPI:
                     destinations=destinations,
                     skill_ids=tuple(payload.skill_ids),
                     tool_ids=tuple(payload.tool_ids),
+                    timeout_seconds=payload.timeout_seconds,
                     dry_run=payload.dry_run,
                 )
             )

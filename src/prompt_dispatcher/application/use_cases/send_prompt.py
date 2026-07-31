@@ -18,6 +18,7 @@ class SendPromptCommand:
     title: str = "즉시 프롬프트"
     skill_ids: tuple[str, ...] = ()
     tool_ids: tuple[str, ...] = ()
+    timeout_seconds: int = 600
     dry_run: bool = False
 
 
@@ -57,6 +58,7 @@ class SendPrompt:
                 command.prompt,
                 skill_ids=command.skill_ids,
                 tool_ids=command.tool_ids,
+                timeout_seconds=command.timeout_seconds,
             )
         )
         if not response.content.strip():

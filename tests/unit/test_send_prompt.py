@@ -15,6 +15,7 @@ def test_send_prompt_passes_selected_skills_and_tools() -> None:
             destinations=(),
             skill_ids=("skill-1",),
             tool_ids=("tool-1",),
+            timeout_seconds=123,
             dry_run=True,
         )
     )
@@ -22,3 +23,4 @@ def test_send_prompt_passes_selected_skills_and_tools() -> None:
     assert result.content == "answer"
     assert client.requests[0].skill_ids == ("skill-1",)
     assert client.requests[0].tool_ids == ("tool-1",)
+    assert client.requests[0].timeout_seconds == 123
