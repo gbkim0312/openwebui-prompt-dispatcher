@@ -39,6 +39,7 @@ def _runtime_path(value: str, local_default: str) -> Path:
 
 @dataclass(frozen=True)
 class Settings:
+    log_level: str
     jobs_directory: Path
     prompts_directory: Path
     database_path: Path
@@ -63,6 +64,7 @@ class Settings:
             return os.getenv(key) or managed.get(key, default)
 
         return cls(
+            value("LOG_LEVEL", "INFO"),
             _runtime_path(os.getenv("JOBS_DIRECTORY", "jobs"), "jobs"),
             _runtime_path(os.getenv("PROMPTS_DIRECTORY", "prompts"), "prompts"),
             database,

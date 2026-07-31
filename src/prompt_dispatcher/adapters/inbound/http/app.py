@@ -165,4 +165,9 @@ def create_app(container: ApplicationContainer) -> FastAPI:
         store.save_secrets(payload.values)
         return {"status": "saved", "message": "Restart the service to apply connection settings."}
 
+    @app.get("/api/logs")
+    def logs(limit: int = 200) -> dict[str, object]:
+        safe_limit = max(1, min(limit, 500))
+        return {"lines": store.tail_log(safe_limit)}
+
     return app

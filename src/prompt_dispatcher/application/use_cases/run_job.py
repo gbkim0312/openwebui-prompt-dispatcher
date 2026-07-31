@@ -57,13 +57,17 @@ class RunJob:
         if job is None:
             raise JobNotFoundError(f"Job not found: {command.job_id}")
         if not job.enabled:
+            logger.info("event=job_skipped job_id=%s reason=disabled", job.id)
             return RunJobResult(None, ExecutionStatus.SKIPPED, "Job is disabled")
         now = self._clock.now(job.schedule.timezone)
         scheduled = command.scheduled_time or now
         execution = Execution(str(uuid4()), job.id, scheduled, now)
+        logger.info("event=job_started job_id=%s execution_id=%s", job.id, execution.id)
         if job.execution_policy.skip_if_previous_running and self._executions.find_running(job.id):
+            logger.info("event=job_skipped job_id=%s reason=already_running", job.id)
             return RunJobResult(None, ExecutionStatus.SKIPPED, "Job already running")
         if not self._executions.try_start(execution):
+            logger.info("event=job_skipped job_id=%s reason=duplicate_schedule", job.id)
             return RunJobResult(None, ExecutionStatus.SKIPPED, "Duplicate scheduled execution")
         try:
             template = self._prompts.load(job.prompt_definition)
@@ -93,6 +97,12 @@ class RunJob:
             )
             if not content.strip():
                 raise ValueError("Open WebUI returned empty content")
+            logger.info(
+                "event=openwebui_response job_id=%s execution_id=%s response_length=%s",
+                job.id,
+                execution.id,
+                len(content),
+            )
         except Exception as exc:
             self._executions.complete(
                 execution.id,
@@ -102,6 +112,12 @@ class RunJob:
                     error_type=type(exc).__name__,
                     error_message=str(exc),
                 ),
+            )
+            logger.error(
+                "event=job_failed job_id=%s execution_id=%s error_type=%s",
+                job.id,
+                execution.id,
+                type(exc).__name__,
             )
             return RunJobResult(execution.id, ExecutionStatus.FAILED, str(exc))
         if command.dry_run:
@@ -129,6 +145,13 @@ class RunJob:
                     receipt.external_id,
                 )
                 successes += 1
+                logger.info(
+                    "event=delivery_success job_id=%s execution_id=%s channel_type=%s target=%s",
+                    job.id,
+                    execution.id,
+                    destination.channel_type,
+                    destination.target,
+                )
             except Exception as exc:
                 delivery = DeliveryResult(
                     destination.channel_type,
@@ -140,10 +163,21 @@ class RunJob:
                     error_message=str(exc),
                 )
                 failures += 1
+                logger.warning(
+                    "event=delivery_failed job_id=%s execution_id=%s channel_type=%s target=%s error_type=%s",
+                    job.id,
+                    execution.id,
+                    destination.channel_type,
+                    destination.target,
+                    type(exc).__name__,
+                )
             self._executions.add_delivery(execution.id, delivery)
         status = determine_execution_status(successes, failures)
         self._executions.complete(
             execution.id,
             ExecutionResult(status, self._clock.now(job.schedule.timezone), len(content)),
+        )
+        logger.info(
+            "event=job_completed job_id=%s execution_id=%s status=%s", job.id, execution.id, status
         )
         return RunJobResult(execution.id, status)

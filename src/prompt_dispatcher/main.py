@@ -1,9 +1,11 @@
 import argparse
+import logging
 import sys
 
 from prompt_dispatcher.adapters.inbound.http.app import create_app
 from prompt_dispatcher.application.dto.commands import RunJobCommand
 from prompt_dispatcher.bootstrap.container import build_container
+from prompt_dispatcher.bootstrap.logging import configure_logging
 
 
 def main() -> None:
@@ -19,6 +21,8 @@ def main() -> None:
     sub.add_parser("serve")
     args = parser.parse_args()
     container = build_container()
+    configure_logging(container.settings)
+    logging.getLogger(__name__).info("event=service_started command=%s", args.command)
     if args.command == "validate":
         for error in container.jobs.errors:
             print(error, file=sys.stderr)

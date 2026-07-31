@@ -98,3 +98,9 @@ class WebManagementStore:
         self._write(
             self._secrets, "".join(f"{key}={value}\n" for key, value in sorted(old.items()))
         )
+
+    def tail_log(self, limit: int = 200) -> list[str]:
+        path = self._secrets.parent / "dispatcher.log"
+        if not path.exists():
+            return []
+        return path.read_text(encoding="utf-8", errors="replace").splitlines()[-limit:]
