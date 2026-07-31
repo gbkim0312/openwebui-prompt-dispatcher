@@ -22,8 +22,16 @@ class HttpOpenWebUiAdapter:
         )
 
     def generate(self, request: OpenWebUiRequest) -> OpenWebUiResponse:
-        if request.skill_ids or request.tool_ids:
-            return self._generate_in_chat(request)
+        """Generate through Open WebUI's browser-compatible chat lifecycle.
+
+        Some Responses-backed model connections reject the minimal stateless
+        request even though the same model works in the Open WebUI browser.
+        Creating the chat and reading its completed assistant message mirrors
+        that browser flow and also works for ordinary prompts.
+        """
+        return self._generate_in_chat(request)
+
+    def _generate_stateless(self, request: OpenWebUiRequest) -> OpenWebUiResponse:
         payload = {
             "model": request.model,
             "messages": [{"role": "user", "content": request.prompt}],
@@ -158,10 +166,19 @@ class HttpOpenWebUiAdapter:
                     self._ensure_final_content(content)
                     return OpenWebUiResponse(content=content, model=request.model)
                 time.sleep(1)
-            raise OpenWebUiError("Open WebUI tool response timed out")
+            raise OpenWebUiError("Open WebUI response timed out")
         except httpx.HTTPStatusError as exc:
+            detail = ""
+            try:
+                error_payload = exc.response.json()
+                if isinstance(error_payload, dict):
+                    detail = str(error_payload.get("detail") or error_payload.get("message") or "")
+            except ValueError:
+                pass
+            suffix = f": {detail[:500]}" if detail else ""
             raise OpenWebUiError(
-                f"Open WebUI chat-backed tool generation failed (HTTP {exc.response.status_code})"
+                "Open WebUI chat-backed generation failed "
+                f"(HTTP {exc.response.status_code}){suffix}"
             ) from exc
         except (httpx.HTTPError, KeyError, TypeError, ValueError) as exc:
             raise OpenWebUiError("Open WebUI chat-backed tool generation failed") from exc
