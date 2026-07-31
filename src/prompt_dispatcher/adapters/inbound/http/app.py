@@ -29,6 +29,12 @@ class InstantPromptPayload(BaseModel):
     tool_ids: list[str] = Field(default_factory=list)
     timeout_seconds: int = Field(default=600, gt=0)
     web_search_time_range: Literal["day", "week", "month", "year"] | None = None
+    web_search_query: str | None = None
+    web_search_topic: Literal["general", "news", "finance"] = "news"
+    web_search_depth: Literal["basic", "fast", "advanced", "ultra-fast"] = "basic"
+    web_search_max_results: int = Field(default=8, ge=1, le=20)
+    web_search_include_domains: list[str] = Field(default_factory=list)
+    web_search_exclude_domains: list[str] = Field(default_factory=list)
     channels: list[dict[str, str]] = Field(default_factory=list)
     dry_run: bool = False
 
@@ -149,6 +155,16 @@ def create_app(container: ApplicationContainer) -> FastAPI:
                     "required_tool_ids": list(job.openwebui_options.required_tool_ids),
                     "timeout_seconds": job.openwebui_options.timeout_seconds,
                     "web_search_time_range": job.openwebui_options.web_search_time_range,
+                    "web_search_query": job.openwebui_options.web_search_query,
+                    "web_search_topic": job.openwebui_options.web_search_topic,
+                    "web_search_depth": job.openwebui_options.web_search_depth,
+                    "web_search_max_results": job.openwebui_options.web_search_max_results,
+                    "web_search_include_domains": list(
+                        job.openwebui_options.web_search_include_domains
+                    ),
+                    "web_search_exclude_domains": list(
+                        job.openwebui_options.web_search_exclude_domains
+                    ),
                 },
                 "prompt": {"variables": dict(job.prompt_definition.variables)},
                 "delivery": {
@@ -217,6 +233,12 @@ def create_app(container: ApplicationContainer) -> FastAPI:
                     timeout_seconds=payload.timeout_seconds,
                     dry_run=payload.dry_run,
                     web_search_time_range=payload.web_search_time_range,
+                    web_search_query=payload.web_search_query,
+                    web_search_topic=payload.web_search_topic,
+                    web_search_depth=payload.web_search_depth,
+                    web_search_max_results=payload.web_search_max_results,
+                    web_search_include_domains=tuple(payload.web_search_include_domains),
+                    web_search_exclude_domains=tuple(payload.web_search_exclude_domains),
                 )
             )
             return {

@@ -16,6 +16,12 @@ class OpenWebUiOptions:
     required_tool_ids: tuple[str, ...] = ()
     timeout_seconds: int = 600
     web_search_time_range: str | None = None
+    web_search_query: str | None = None
+    web_search_topic: str = "news"
+    web_search_depth: str = "basic"
+    web_search_max_results: int = 8
+    web_search_include_domains: tuple[str, ...] = ()
+    web_search_exclude_domains: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)

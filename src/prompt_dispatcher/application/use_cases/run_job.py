@@ -91,11 +91,22 @@ class RunJob:
                 tool_ids: tuple[str, ...] = ()
                 if job.openwebui_options.web_search_time_range:
                     tool_ids = ("web_search_with_tavily",)
+                search_query = (
+                    self._renderer.render(job.openwebui_options.web_search_query, variables)
+                    if job.openwebui_options.web_search_query
+                    else None
+                )
                 prompt, tool_ids = enrich_with_tavily(
                     prompt,
                     tool_ids,
                     self._tavily,
                     job.openwebui_options.web_search_time_range or "week",
+                    search_query,
+                    job.openwebui_options.web_search_topic,
+                    job.openwebui_options.web_search_depth,
+                    job.openwebui_options.web_search_max_results,
+                    job.openwebui_options.web_search_include_domains,
+                    job.openwebui_options.web_search_exclude_domains,
                 )
                 content = self._openwebui.generate(
                     OpenWebUiRequest(

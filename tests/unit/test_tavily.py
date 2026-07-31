@@ -38,13 +38,17 @@ def test_tavily_search_uses_expected_api_request() -> None:
             "time_range": "week",
             "search_depth": "basic",
             "max_results": 8,
+            "include_domains": [],
+            "exclude_domains": [],
         },
     }
 
 
 def test_tavily_tool_is_replaced_with_search_context() -> None:
     class FakeTavily:
-        def search(self, query: str, time_range: str = "week") -> tuple[tuple[str, str, str], ...]:
+        def search(
+            self, query: str, time_range: str = "week", *_: object
+        ) -> tuple[tuple[str, str, str], ...]:
             assert query == "AI 뉴스 5개"
             assert time_range == "week"
             return (("첫 뉴스", "https://example.com/one", "첫 번째 요약"),)

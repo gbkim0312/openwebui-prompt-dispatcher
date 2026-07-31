@@ -63,6 +63,15 @@ class YamlJobRepository:
         search_range = webui.get("web_search_time_range")
         if search_range is not None and search_range not in {"day", "week", "month", "year"}:
             raise JobValidationError("web_search_time_range must be day, week, month, or year")
+        topic = str(webui.get("web_search_topic", "news"))
+        depth = str(webui.get("web_search_depth", "basic"))
+        max_results = int(webui.get("web_search_max_results", 8))
+        if topic not in {"general", "news", "finance"}:
+            raise JobValidationError("web_search_topic must be general, news, or finance")
+        if depth not in {"basic", "fast", "advanced", "ultra-fast"}:
+            raise JobValidationError("web_search_depth is invalid")
+        if not 1 <= max_results <= 20:
+            raise JobValidationError("web_search_max_results must be between 1 and 20")
         return Job(
             raw["id"],
             raw.get("name", raw["id"]),
@@ -75,6 +84,12 @@ class YamlJobRepository:
                 tuple(webui.get("required_tool_ids", [])),
                 int(webui.get("timeout_seconds", 600)),
                 search_range,
+                webui.get("web_search_query"),
+                topic,
+                depth,
+                max_results,
+                tuple(webui.get("web_search_include_domains", [])),
+                tuple(webui.get("web_search_exclude_domains", [])),
             ),
             PromptDefinition(prompt.get("file"), prompt.get("text"), prompt.get("variables", {})),
             tuple(
