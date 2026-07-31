@@ -15,6 +15,7 @@ class OpenWebUiOptions:
     tool_ids: tuple[str, ...] = ()
     required_tool_ids: tuple[str, ...] = ()
     timeout_seconds: int = 600
+    web_search_time_range: str | None = None
 
 
 @dataclass(frozen=True)

@@ -44,8 +44,9 @@ def test_tavily_search_uses_expected_api_request() -> None:
 
 def test_tavily_tool_is_replaced_with_search_context() -> None:
     class FakeTavily:
-        def search(self, query: str) -> tuple[tuple[str, str, str], ...]:
+        def search(self, query: str, time_range: str = "week") -> tuple[tuple[str, str, str], ...]:
             assert query == "AI 뉴스 5개"
+            assert time_range == "week"
             return (("첫 뉴스", "https://example.com/one", "첫 번째 요약"),)
 
     prompt, tool_ids = enrich_with_tavily(
@@ -62,3 +63,13 @@ def test_tavily_tool_is_replaced_with_search_context() -> None:
 def test_tavily_requires_api_key() -> None:
     with pytest.raises(ValueError, match="TAVILY_API_KEY"):
         TavilySearch("").search("latest news")
+
+
+def test_tavily_search_passes_selected_time_range() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        assert json.loads(request.content)["time_range"] == "month"
+        return httpx.Response(200, json={"results": []})
+
+    client = httpx.Client(transport=httpx.MockTransport(handler))
+
+    assert TavilySearch("tvly-test", client).search("AI 뉴스", "month") == ()

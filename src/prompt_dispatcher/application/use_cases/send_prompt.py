@@ -22,6 +22,7 @@ class SendPromptCommand:
     tool_ids: tuple[str, ...] = ()
     timeout_seconds: int = 600
     dry_run: bool = False
+    web_search_time_range: str | None = None
 
 
 @dataclass(frozen=True)
@@ -56,7 +57,15 @@ class SendPrompt:
             len(command.skill_ids),
             len(command.tool_ids),
         )
-        prompt, tool_ids = enrich_with_tavily(command.prompt, command.tool_ids, self._tavily)
+        tool_ids = command.tool_ids
+        if command.web_search_time_range:
+            tool_ids = ("web_search_with_tavily",)
+        prompt, tool_ids = enrich_with_tavily(
+            command.prompt,
+            tool_ids,
+            self._tavily,
+            command.web_search_time_range or "week",
+        )
         response = self._openwebui.generate(
             OpenWebUiRequest(
                 command.model,

@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import FileResponse
@@ -28,6 +28,7 @@ class InstantPromptPayload(BaseModel):
     skill_ids: list[str] = Field(default_factory=list)
     tool_ids: list[str] = Field(default_factory=list)
     timeout_seconds: int = Field(default=600, gt=0)
+    web_search_time_range: Literal["day", "week", "month", "year"] | None = None
     channels: list[dict[str, str]] = Field(default_factory=list)
     dry_run: bool = False
 
@@ -147,6 +148,7 @@ def create_app(container: ApplicationContainer) -> FastAPI:
                     "tool_ids": list(job.openwebui_options.tool_ids),
                     "required_tool_ids": list(job.openwebui_options.required_tool_ids),
                     "timeout_seconds": job.openwebui_options.timeout_seconds,
+                    "web_search_time_range": job.openwebui_options.web_search_time_range,
                 },
                 "prompt": {"variables": dict(job.prompt_definition.variables)},
                 "delivery": {
@@ -214,6 +216,7 @@ def create_app(container: ApplicationContainer) -> FastAPI:
                     tool_ids=tuple(payload.tool_ids),
                     timeout_seconds=payload.timeout_seconds,
                     dry_run=payload.dry_run,
+                    web_search_time_range=payload.web_search_time_range,
                 )
             )
             return {

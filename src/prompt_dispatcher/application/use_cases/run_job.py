@@ -88,8 +88,14 @@ class RunJob:
             if command.skip_openwebui:
                 content = prompt
             else:
+                tool_ids = job.openwebui_options.tool_ids
+                if job.openwebui_options.web_search_time_range:
+                    tool_ids = ("web_search_with_tavily",)
                 prompt, tool_ids = enrich_with_tavily(
-                    prompt, job.openwebui_options.tool_ids, self._tavily
+                    prompt,
+                    tool_ids,
+                    self._tavily,
+                    job.openwebui_options.web_search_time_range or "week",
                 )
                 content = self._openwebui.generate(
                     OpenWebUiRequest(

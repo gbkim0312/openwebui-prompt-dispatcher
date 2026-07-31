@@ -60,6 +60,9 @@ class YamlJobRepository:
             raise JobValidationError("at least one channel is required")
         if not raw.get("id") or not webui.get("model"):
             raise JobValidationError("id and openwebui.model are required")
+        search_range = webui.get("web_search_time_range")
+        if search_range is not None and search_range not in {"day", "week", "month", "year"}:
+            raise JobValidationError("web_search_time_range must be day, week, month, or year")
         return Job(
             raw["id"],
             raw.get("name", raw["id"]),
@@ -71,6 +74,7 @@ class YamlJobRepository:
                 tuple(webui.get("tool_ids", [])),
                 tuple(webui.get("required_tool_ids", [])),
                 int(webui.get("timeout_seconds", 600)),
+                search_range,
             ),
             PromptDefinition(prompt.get("file"), prompt.get("text"), prompt.get("variables", {})),
             tuple(

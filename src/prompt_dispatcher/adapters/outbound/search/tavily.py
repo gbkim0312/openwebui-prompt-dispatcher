@@ -6,16 +6,18 @@ class TavilySearch:
         self._api_key = api_key
         self._client = client or httpx.Client()
 
-    def search(self, query: str) -> tuple[tuple[str, str, str], ...]:
+    def search(self, query: str, time_range: str = "week") -> tuple[tuple[str, str, str], ...]:
         if not self._api_key:
             raise ValueError("TAVILY_API_KEY is required for direct Tavily search")
+        if time_range not in {"day", "week", "month", "year"}:
+            raise ValueError("Tavily search period must be day, week, month, or year")
         response = self._client.post(
             "https://api.tavily.com/search",
             headers={"Authorization": f"Bearer {self._api_key}"},
             json={
                 "query": query,
                 "topic": "news",
-                "time_range": "week",
+                "time_range": time_range,
                 "search_depth": "basic",
                 "max_results": 8,
             },
