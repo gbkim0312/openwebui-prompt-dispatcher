@@ -24,6 +24,25 @@ docker build -t prompt-dispatcher:local .
 docker compose up -d
 ```
 
+이미지를 다른 태그로 빌드했다면 해당 태그를 `IMAGE`에 지정합니다.
+
+```bash
+IMAGE=내가-빌드한-이미지:태그 docker compose up -d
+```
+
+기본 태그는 `prompt-dispatcher:local`입니다. 따라서 처음부터 빌드한다면 다음 조합을 사용할 수 있습니다.
+
+```bash
+docker build -t prompt-dispatcher:local .
+docker compose up -d
+```
+
+Compose는 `.env`를 컨테이너 환경으로 전달하고, `jobs`, `prompts`, `data`를 호스트 디렉터리에 영속화합니다. Linux에서 처음 실행할 때 컨테이너가 이 디렉터리에 쓸 수 없다면 다음 한 번만 실행합니다.
+
+```bash
+sudo chown -R 10001:10001 jobs prompts data
+```
+
 Compose 파일에는 의도적으로 `build:`가 없습니다. 먼저 로컬 이미지를 빌드해야 합니다.
 
 ```bash
