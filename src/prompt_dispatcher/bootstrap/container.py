@@ -61,6 +61,8 @@ def build_container(settings: Settings | None = None) -> ApplicationContainer:
         if d.channel_type == "telegram"
         if (value := _target("TELEGRAM", d.target, ("BOT_TOKEN", "CHAT_ID"), managed))
     }
+    if personal_telegram := _target("TELEGRAM", "personal", ("BOT_TOKEN", "CHAT_ID"), managed):
+        telegram_targets.setdefault("personal", personal_telegram)
     talk_targets = {
         d.target: value
         for j in jobs.find_all()
@@ -72,6 +74,10 @@ def build_container(settings: Settings | None = None) -> ApplicationContainer:
             )
         )
     }
+    if personal_talk := _target(
+        "NEXTCLOUD_TALK", "personal", ("USERNAME", "APP_PASSWORD", "ROOM_TOKEN"), managed
+    ):
+        talk_targets.setdefault("personal", personal_talk)
     channels: list[MessageChannelPort] = [
         TelegramChannel(cast(dict[str, tuple[str, str]], telegram_targets)),
         NextcloudTalkChannel(
