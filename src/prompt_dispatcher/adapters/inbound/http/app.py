@@ -72,6 +72,19 @@ def create_app(container: ApplicationContainer) -> FastAPI:
             for job in container.list_jobs.execute()
         ]
 
+    @app.get("/api/channels")
+    def channels() -> list[dict[str, str]]:
+        destinations = {
+            (destination.channel_type, destination.target)
+            for job in container.list_jobs.execute()
+            for destination in job.destinations
+        }
+        return [
+            {"type": channel_type, "target": target}
+            for channel_type, target in sorted(destinations)
+            if channel_type != "fake"
+        ]
+
     @app.get("/api/models")
     def models() -> dict[str, object]:
         try:
