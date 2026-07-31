@@ -21,6 +21,7 @@ from prompt_dispatcher.application.services.channel_resolver import ChannelResol
 from prompt_dispatcher.application.use_cases.jobs import ListJobs
 from prompt_dispatcher.application.use_cases.register_schedules import RegisterSchedules
 from prompt_dispatcher.application.use_cases.run_job import RunJob
+from prompt_dispatcher.application.use_cases.send_prompt import SendPrompt
 
 from .settings import Settings, _managed_values
 
@@ -45,6 +46,7 @@ class ApplicationContainer:
     scheduler: ApschedulerAdapter
     register_schedules: RegisterSchedules
     model_catalog: ModelCatalogPort
+    send_prompt: SendPrompt
 
 
 def build_container(settings: Settings | None = None) -> ApplicationContainer:
@@ -94,6 +96,7 @@ def build_container(settings: Settings | None = None) -> ApplicationContainer:
         clock,
         model_catalog,
     )
+    send_prompt = SendPrompt(openwebui, ChannelResolver(channels), clock)
     return ApplicationContainer(
         settings,
         jobs,
@@ -102,4 +105,5 @@ def build_container(settings: Settings | None = None) -> ApplicationContainer:
         scheduler,
         RegisterSchedules(jobs, scheduler, run),
         model_catalog,
+        send_prompt,
     )

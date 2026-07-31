@@ -7,7 +7,9 @@ from pydantic import BaseModel, Field
 
 from prompt_dispatcher.adapters.outbound.repositories.web_management import WebManagementStore
 from prompt_dispatcher.application.dto.commands import RunJobCommand
+from prompt_dispatcher.application.use_cases.send_prompt import SendPromptCommand
 from prompt_dispatcher.bootstrap.container import ApplicationContainer
+from prompt_dispatcher.domain.job import ChannelDestination
 
 
 class JobPayload(BaseModel):
@@ -17,6 +19,14 @@ class JobPayload(BaseModel):
 
 class SecretPayload(BaseModel):
     values: dict[str, str] = Field(default_factory=dict)
+
+
+class InstantPromptPayload(BaseModel):
+    prompt: str
+    model: str
+    title: str = "즉시 프롬프트"
+    channels: list[dict[str, str]] = Field(default_factory=list)
+    dry_run: bool = False
 
 
 def create_app(container: ApplicationContainer) -> FastAPI:
@@ -150,6 +160,31 @@ def create_app(container: ApplicationContainer) -> FastAPI:
             "execution_id": result.execution_id,
             "message": result.message,
         }
+
+    @app.post("/api/prompt/send")
+    def send_prompt(payload: InstantPromptPayload) -> dict[str, object]:
+        try:
+            destinations = tuple(
+                ChannelDestination(channel["type"], channel["target"])
+                for channel in payload.channels
+                if channel.get("type") and channel.get("target")
+            )
+            result = container.send_prompt.execute(
+                SendPromptCommand(
+                    prompt=payload.prompt,
+                    model=payload.model,
+                    title=payload.title,
+                    destinations=destinations,
+                    dry_run=payload.dry_run,
+                )
+            )
+            return {
+                "content": result.content,
+                "successful_targets": result.successful_targets,
+                "failed_targets": result.failed_targets,
+            }
+        except Exception as error:
+            raise HTTPException(422, str(error)) from error
 
     @app.get("/api/settings")
     def settings() -> dict[str, object]:
