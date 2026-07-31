@@ -1,0 +1,16 @@
+version: 1
+id: fake-channel-test
+name: Fake channel test
+enabled: false
+schedule:
+  cron: "0 0 1 1 *"
+  timezone: Asia/Seoul
+openwebui:
+  model: qwen3-80b-instruct
+prompt:
+  file: fake-channel-test.md
+delivery:
+  channels:
+    - type: fake
+      target: test-recorder
+execution: {}

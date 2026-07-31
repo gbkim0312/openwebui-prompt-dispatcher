@@ -1,0 +1,30 @@
+version: 1
+id: morning-ai-news
+name: 매일 아침 AI 뉴스
+enabled: true
+schedule:
+  cron: "0 7 * * *"
+  timezone: Asia/Seoul
+openwebui:
+  model: qwen3-80b-instruct
+  skill_ids: [daily-news-brief]
+  tool_ids: [web-search]
+  required_tool_ids: []
+  timeout_seconds: 600
+prompt:
+  file: morning-news.md
+  variables:
+    language: ko
+    max_items: 5
+delivery:
+  channels:
+    - type: nextcloud_talk
+      target: personal
+    - type: telegram
+      target: personal
+execution:
+  max_instances: 1
+  skip_if_previous_running: true
+  misfire_grace_seconds: 300
+  retry_count: 2
+  retry_delay_seconds: 30
