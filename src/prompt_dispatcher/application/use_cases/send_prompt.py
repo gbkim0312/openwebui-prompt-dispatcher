@@ -16,6 +16,8 @@ class SendPromptCommand:
     model: str
     destinations: tuple[ChannelDestination, ...]
     title: str = "즉시 프롬프트"
+    skill_ids: tuple[str, ...] = ()
+    tool_ids: tuple[str, ...] = ()
     dry_run: bool = False
 
 
@@ -45,7 +47,14 @@ class SendPrompt:
         logger.info(
             "event=instant_prompt_started model=%s dry_run=%s", command.model, command.dry_run
         )
-        response = self._openwebui.generate(OpenWebUiRequest(command.model, command.prompt))
+        response = self._openwebui.generate(
+            OpenWebUiRequest(
+                command.model,
+                command.prompt,
+                skill_ids=command.skill_ids,
+                tool_ids=command.tool_ids,
+            )
+        )
         if not response.content.strip():
             raise ValueError("Open WebUI returned empty content")
         if command.dry_run:

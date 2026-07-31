@@ -25,6 +25,8 @@ class InstantPromptPayload(BaseModel):
     prompt: str
     model: str
     title: str = "즉시 프롬프트"
+    skill_ids: list[str] = Field(default_factory=list)
+    tool_ids: list[str] = Field(default_factory=list)
     channels: list[dict[str, str]] = Field(default_factory=list)
     dry_run: bool = False
 
@@ -119,6 +121,13 @@ def create_app(container: ApplicationContainer) -> FastAPI:
         except Exception as error:
             raise HTTPException(502, "Open WebUI 모델 목록을 갱신할 수 없습니다.") from error
 
+    @app.get("/api/capabilities")
+    def capabilities() -> dict[str, object]:
+        return {
+            capability_type: list(items)
+            for capability_type, items in container.capability_catalog.list_capabilities().items()
+        }
+
     @app.get("/api/jobs/{job_id}")
     def get_job(job_id: str) -> dict[str, object]:
         job = container.jobs.find_by_id(job_id)
@@ -200,6 +209,8 @@ def create_app(container: ApplicationContainer) -> FastAPI:
                     model=payload.model,
                     title=payload.title,
                     destinations=destinations,
+                    skill_ids=tuple(payload.skill_ids),
+                    tool_ids=tuple(payload.tool_ids),
                     dry_run=payload.dry_run,
                 )
             )

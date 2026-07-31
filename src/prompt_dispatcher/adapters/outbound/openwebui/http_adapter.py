@@ -74,6 +74,33 @@ class HttpOpenWebUiAdapter:
             return tuple(sorted(models))
         raise OpenWebUiError("Unable to load Open WebUI models") from last_error
 
+    def list_capabilities(self) -> dict[str, tuple[dict[str, str], ...]]:
+        """Return user-visible Open WebUI skills and tools, tolerating unavailable APIs."""
+        catalogs: dict[str, tuple[dict[str, str], ...]] = {}
+        for capability_type, path in (("skills", "/api/v1/skills/"), ("tools", "/api/v1/tools/")):
+            try:
+                response = self._client.get(
+                    f"{self._url}{path}",
+                    headers={"Authorization": f"Bearer {self._key}"},
+                    timeout=30,
+                )
+                response.raise_for_status()
+                records = response.json()
+                if not isinstance(records, list):
+                    raise TypeError("Unexpected capability catalog response")
+                items = {
+                    (str(record["id"]), str(record.get("name") or record["id"]))
+                    for record in records
+                    if isinstance(record, dict) and record.get("id")
+                }
+                catalogs[capability_type] = tuple(
+                    {"id": identifier, "name": name}
+                    for identifier, name in sorted(items, key=lambda item: item[1].lower())
+                )
+            except (httpx.HTTPError, TypeError, ValueError):
+                catalogs[capability_type] = ()
+        return catalogs
+
 
 class FakeOpenWebUiClient:
     def __init__(

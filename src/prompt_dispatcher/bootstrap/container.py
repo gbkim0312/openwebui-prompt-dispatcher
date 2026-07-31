@@ -46,6 +46,7 @@ class ApplicationContainer:
     scheduler: ApschedulerAdapter
     register_schedules: RegisterSchedules
     model_catalog: ModelCatalogPort
+    capability_catalog: HttpOpenWebUiAdapter
     send_prompt: SendPrompt
 
 
@@ -105,5 +106,6 @@ def build_container(settings: Settings | None = None) -> ApplicationContainer:
         scheduler,
         RegisterSchedules(jobs, scheduler, run),
         model_catalog,
+        openwebui,
         send_prompt,
     )
