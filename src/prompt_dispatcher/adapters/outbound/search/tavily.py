@@ -12,14 +12,25 @@ class TavilySearch:
         response = self._client.post(
             "https://api.tavily.com/search",
             headers={"Authorization": f"Bearer {self._api_key}"},
-            json={"query": query, "search_depth": "basic", "max_results": 8},
+            json={
+                "query": query,
+                "topic": "news",
+                "time_range": "week",
+                "search_depth": "basic",
+                "max_results": 8,
+            },
             timeout=60,
         )
         response.raise_for_status()
         payload = response.json()
         records = payload.get("results", []) if isinstance(payload, dict) else []
-        return tuple(
-            (str(item.get("title", "")), str(item.get("url", "")), str(item.get("content", "")))
-            for item in records
-            if isinstance(item, dict) and item.get("url")
-        )
+        results: list[tuple[str, str, str]] = []
+        for item in records:
+            if not isinstance(item, dict) or not item.get("url"):
+                continue
+            published_date = str(item.get("published_date") or item.get("published_at") or "")
+            content = str(item.get("content", ""))
+            if published_date:
+                content = f"발행일: {published_date}\n{content}"
+            results.append((str(item.get("title", "")), str(item["url"]), content))
+        return tuple(results)

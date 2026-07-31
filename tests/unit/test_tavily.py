@@ -32,7 +32,13 @@ def test_tavily_search_uses_expected_api_request() -> None:
     assert search.search("latest AI news") == (("News", "https://example.com/news", "Summary"),)
     assert captured == {
         "authorization": "Bearer tvly-test",
-        "payload": {"query": "latest AI news", "search_depth": "basic", "max_results": 8},
+        "payload": {
+            "query": "latest AI news",
+            "topic": "news",
+            "time_range": "week",
+            "search_depth": "basic",
+            "max_results": 8,
+        },
     }
 
 
@@ -50,7 +56,7 @@ def test_tavily_tool_is_replaced_with_search_context() -> None:
 
     assert tool_ids == ("other-tool",)
     assert "https://example.com/one" in prompt
-    assert "출처 URL" in prompt
+    assert "최근 7일" in prompt
 
 
 def test_tavily_requires_api_key() -> None:

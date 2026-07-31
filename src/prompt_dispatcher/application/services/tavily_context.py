@@ -17,7 +17,9 @@ def enrich_with_tavily(
     )
     enriched = (
         f"{prompt}\n\n아래는 Tavily가 수집한 최신 검색 결과입니다. "
-        "이 자료만 근거로 답변하고, 출처 URL을 각 항목에 포함하세요.\n\n"
+        "최근 7일 이내에 발행 또는 갱신된 뉴스만 근거로 답변하고, "
+        "기사 날짜와 출처 URL을 각 항목에 포함하세요. 결과가 5개보다 적으면 "
+        "오래된 기사로 채우지 말고 부족한 개수를 명시하세요.\n\n"
         f"--- 검색 결과 ---\n{sources}"
     )
     return enriched, tuple(tool_id for tool_id in tool_ids if tool_id != TAVILY_TOOL_ID)
