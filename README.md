@@ -62,7 +62,7 @@ python3 -m venv .venv
 - Open WebUI·Telegram·Nextcloud Talk 키 입력
 - Open WebUI 실제 모델 목록 검색 및 선택
 
-모델 목록은 `data/models.json`에 캐시됩니다. UI는 이 캐시를 즉시 표시하며, 모든 Job 실행 시작 시 Open WebUI에서 모델 목록을 갱신합니다. 변경된 목록은 열린 UI에도 자동 반영됩니다.
+모델 목록은 `data/models.json`에 캐시됩니다. UI는 이 캐시를 즉시 표시하며, 모든 Job 실행 시작 시 Open WebUI의 `/api/models`와 `/api/v1/models`를 모두 조회해 중복 없이 병합합니다. 모델 선택 영역의 **모델 새로고침** 버튼으로 즉시 갱신할 수도 있습니다. 변경된 목록은 열린 UI에도 자동 반영됩니다.
 
 UI에서 저장한 연결 키는 `data/management.env`에 저장됩니다. **키 저장 후 서비스를 재시작해야** 새 연결 설정이 적용됩니다. 이 파일은 Git에 포함되지 않습니다.
 

@@ -72,6 +72,18 @@ def create_app(container: ApplicationContainer) -> FastAPI:
         except Exception as error:
             raise HTTPException(502, "Open WebUI 모델 목록을 불러올 수 없습니다.") from error
 
+    @app.post("/api/models/refresh")
+    def refresh_models() -> dict[str, object]:
+        try:
+            changed = container.model_catalog.refresh()
+            return {
+                "changed": changed,
+                "models": container.model_catalog.list_models(),
+                "revision": container.model_catalog.revision,
+            }
+        except Exception as error:
+            raise HTTPException(502, "Open WebUI 모델 목록을 갱신할 수 없습니다.") from error
+
     @app.get("/api/jobs/{job_id}")
     def get_job(job_id: str) -> dict[str, object]:
         job = container.jobs.find_by_id(job_id)

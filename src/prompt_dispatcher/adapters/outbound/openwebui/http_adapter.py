@@ -45,24 +45,31 @@ class HttpOpenWebUiAdapter:
             raise OpenWebUiError("Open WebUI generation failed") from exc
 
     def list_models(self) -> tuple[str, ...]:
-        try:
-            response = self._client.get(
-                f"{self._url}/api/models",
-                headers={"Authorization": f"Bearer {self._key}"},
-                timeout=30,
-            )
-            response.raise_for_status()
-            payload = response.json()
-            records = payload.get("data", payload) if isinstance(payload, dict) else payload
-            if not isinstance(records, list):
-                raise TypeError("Unexpected model catalog response")
-            return tuple(
-                str(item.get("id") or item.get("name"))
-                for item in records
-                if isinstance(item, dict) and (item.get("id") or item.get("name"))
-            )
-        except (httpx.HTTPError, TypeError, ValueError) as exc:
-            raise OpenWebUiError("Unable to load Open WebUI models") from exc
+        models: set[str] = set()
+        last_error: Exception | None = None
+        # Open WebUI installations can expose provider models through either endpoint.
+        for path in ("/api/models", "/api/v1/models"):
+            try:
+                response = self._client.get(
+                    f"{self._url}{path}",
+                    headers={"Authorization": f"Bearer {self._key}"},
+                    timeout=30,
+                )
+                response.raise_for_status()
+                payload = response.json()
+                records = payload.get("data", payload) if isinstance(payload, dict) else payload
+                if not isinstance(records, list):
+                    raise TypeError("Unexpected model catalog response")
+                models.update(
+                    str(item.get("id") or item.get("name"))
+                    for item in records
+                    if isinstance(item, dict) and (item.get("id") or item.get("name"))
+                )
+            except (httpx.HTTPError, TypeError, ValueError) as error:
+                last_error = error
+        if models:
+            return tuple(sorted(models))
+        raise OpenWebUiError("Unable to load Open WebUI models") from last_error
 
 
 class FakeOpenWebUiClient:
