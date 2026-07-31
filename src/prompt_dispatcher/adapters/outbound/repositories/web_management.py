@@ -54,11 +54,27 @@ class WebManagementStore:
                 path.unlink()
 
     def configured_keys(self) -> set[str]:
-        if not self._secrets.exists():
-            return set()
-        return {
-            line.split("=", 1)[0] for line in self._secrets.read_text().splitlines() if "=" in line
+        return {key for key, value in self.read_values().items() if value}
+
+    def read_values(self) -> dict[str, str]:
+        allowed = {
+            "OPENWEBUI_BASE_URL",
+            "OPENWEBUI_API_KEY",
+            "NEXTCLOUD_URL",
+            "TELEGRAM_PERSONAL_BOT_TOKEN",
+            "TELEGRAM_PERSONAL_CHAT_ID",
+            "NEXTCLOUD_TALK_PERSONAL_USERNAME",
+            "NEXTCLOUD_TALK_PERSONAL_APP_PASSWORD",
+            "NEXTCLOUD_TALK_PERSONAL_ROOM_TOKEN",
         }
+        stored: dict[str, str] = {}
+        if self._secrets.exists():
+            stored = {
+                line.split("=", 1)[0]: line.split("=", 1)[1]
+                for line in self._secrets.read_text(encoding="utf-8").splitlines()
+                if "=" in line
+            }
+        return {key: os.getenv(key) or stored.get(key, "") for key in allowed}
 
     def save_secrets(self, values: Mapping[str, str]) -> None:
         allowed = {

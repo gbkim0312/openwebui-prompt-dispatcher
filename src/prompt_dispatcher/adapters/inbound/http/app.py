@@ -153,7 +153,12 @@ def create_app(container: ApplicationContainer) -> FastAPI:
 
     @app.get("/api/settings")
     def settings() -> dict[str, object]:
-        return {"configured": sorted(store.configured_keys()), "restart_required": True}
+        values = store.read_values()
+        return {
+            "configured": sorted(key for key, value in values.items() if value),
+            "values": values,
+            "restart_required": True,
+        }
 
     @app.put("/api/settings")
     def save_settings(payload: SecretPayload) -> dict[str, str]:
