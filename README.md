@@ -24,6 +24,13 @@ docker build -t prompt-dispatcher:local .
 docker compose up -d
 ```
 
+기본 빌드는 서비스 실행용 `runtime` 이미지를 만듭니다. 테스트 이미지를 명시적으로 만들 때만 `--target test`를 사용합니다.
+
+```bash
+docker build --target test -t prompt-dispatcher:test .
+docker run --rm prompt-dispatcher:test
+```
+
 이미지를 다른 태그로 빌드했다면 해당 태그를 `IMAGE`에 지정합니다.
 
 ```bash
