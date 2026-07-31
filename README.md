@@ -66,6 +66,8 @@ python3 -m venv .venv
 
 모델 목록은 `data/models.json`에 캐시됩니다. UI는 이 캐시를 즉시 표시하며, 모든 Job 실행 시작 시 Open WebUI의 `/api/models`와 `/api/v1/models`를 모두 조회해 중복 없이 병합합니다. 모델 선택 영역의 **모델 새로고침** 버튼으로 즉시 갱신할 수도 있습니다. 변경된 목록은 열린 UI에도 자동 반영됩니다.
 
+즉시 전송에서 Open WebUI 스킬 또는 툴을 선택하면, 디스패처는 Open WebUI의 채팅 기반 API 흐름으로 실행합니다. 이때 API 키 소유자의 Open WebUI 채팅 목록에 `Prompt Dispatcher 실행` 기록이 생성되며, 툴 실행이 끝난 최종 응답을 가져와 전송합니다.
+
 UI에서 저장한 연결 키는 `data/management.env`에 저장됩니다. **키 저장 후 서비스를 재시작해야** 새 연결 설정이 적용됩니다. 이 파일은 Git에 포함되지 않습니다.
 
 > 보안: 이 UI는 기본적으로 인증이 없습니다. 인터넷에 직접 공개하지 말고, 내부망에서만 사용하거나 인증 프록시(VPN, SSO, Basic Auth 등) 뒤에 두세요.

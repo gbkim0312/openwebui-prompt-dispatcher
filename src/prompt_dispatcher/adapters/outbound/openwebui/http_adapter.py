@@ -1,3 +1,6 @@
+import time
+from uuid import uuid4
+
 import httpx
 
 from prompt_dispatcher.domain.errors import OpenWebUiError
@@ -19,6 +22,8 @@ class HttpOpenWebUiAdapter:
         )
 
     def generate(self, request: OpenWebUiRequest) -> OpenWebUiResponse:
+        if request.skill_ids or request.tool_ids:
+            return self._generate_in_chat(request)
         payload = {
             "model": request.model,
             "messages": [{"role": "user", "content": request.prompt}],
@@ -58,6 +63,106 @@ class HttpOpenWebUiAdapter:
             ) from exc
         except (httpx.HTTPError, KeyError, TypeError, ValueError) as exc:
             raise OpenWebUiError("Open WebUI generation failed") from exc
+
+    def _generate_in_chat(self, request: OpenWebUiRequest) -> OpenWebUiResponse:
+        """Use Open WebUI's chat-backed flow so server-side tools can finish."""
+        user_id, assistant_id, session_id = (str(uuid4()) for _ in range(3))
+        timestamp = int(time.time())
+        user_message = {
+            "id": user_id,
+            "role": "user",
+            "content": request.prompt,
+            "timestamp": timestamp,
+            "models": [request.model],
+            "childrenIds": [assistant_id],
+        }
+        assistant_message = {
+            "id": assistant_id,
+            "role": "assistant",
+            "content": "",
+            "parentId": user_id,
+            "childrenIds": [],
+            "model": request.model,
+            "modelName": request.model,
+            "modelIdx": 0,
+            "done": False,
+            "timestamp": timestamp + 1,
+        }
+        chat = {
+            "title": "Prompt Dispatcher 실행",
+            "models": [request.model],
+            "messages": [user_message, assistant_message],
+            "history": {
+                "currentId": assistant_id,
+                "messages": {user_id: user_message, assistant_id: assistant_message},
+            },
+        }
+        try:
+            created = self._client.post(
+                f"{self._url}/api/v1/chats/new",
+                json={"chat": chat},
+                headers={"Authorization": f"Bearer {self._key}"},
+                timeout=request.timeout_seconds,
+            )
+            created.raise_for_status()
+            chat_id = str(created.json()["id"])
+            payload: dict[str, object] = {
+                "chat_id": chat_id,
+                "id": assistant_id,
+                "session_id": session_id,
+                "model": request.model,
+                "messages": [{"role": "user", "content": request.prompt}],
+                "stream": True,
+                "background_tasks": {
+                    "title_generation": False,
+                    "tags_generation": False,
+                    "follow_up_generation": False,
+                },
+                "features": {
+                    "code_interpreter": False,
+                    "web_search": False,
+                    "image_generation": False,
+                    "memory": False,
+                },
+            }
+            if request.skill_ids:
+                payload["skill_ids"] = list(request.skill_ids)
+            if request.tool_ids:
+                payload["tool_ids"] = list(request.tool_ids)
+            with self._client.stream(
+                "POST",
+                f"{self._url}/api/chat/completions",
+                json=payload,
+                headers={"Authorization": f"Bearer {self._key}"},
+                timeout=request.timeout_seconds,
+            ) as response:
+                response.raise_for_status()
+                for _ in response.iter_bytes():
+                    pass
+            deadline = time.monotonic() + request.timeout_seconds
+            while time.monotonic() < deadline:
+                stored = self._client.get(
+                    f"{self._url}/api/v1/chats/{chat_id}",
+                    headers={"Authorization": f"Bearer {self._key}"},
+                    timeout=30,
+                )
+                stored.raise_for_status()
+                data = stored.json()
+                chat_data = data.get("chat", data) if isinstance(data, dict) else {}
+                history = chat_data.get("history", {}) if isinstance(chat_data, dict) else {}
+                messages = history.get("messages", {}) if isinstance(history, dict) else {}
+                message = messages.get(assistant_id, {}) if isinstance(messages, dict) else {}
+                content = message.get("content", "") if isinstance(message, dict) else ""
+                if isinstance(content, str) and content.strip():
+                    return OpenWebUiResponse(content=content, model=request.model)
+                time.sleep(1)
+            raise OpenWebUiError("Open WebUI tool response timed out")
+        except httpx.HTTPStatusError as exc:
+            raise OpenWebUiError(
+                f"Open WebUI chat-backed tool generation failed (HTTP {exc.response.status_code})"
+            ) from exc
+        except (httpx.HTTPError, KeyError, TypeError, ValueError) as exc:
+            raise OpenWebUiError("Open WebUI chat-backed tool generation failed") from exc
 
     def list_models(self) -> tuple[str, ...]:
         models: set[str] = set()
