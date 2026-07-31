@@ -34,6 +34,8 @@ make logs
 
 관리 UI는 `http://127.0.0.1:8787/`에서 열 수 있습니다.
 
+기본 예약 Job은 포함하지 않습니다. 웹 UI에서 새 작업을 만들거나 아래 Job 예시를 바탕으로 직접 등록하세요.
+
 ## Docker 없이 실행
 
 Python 3.12 이상에서 가상환경을 만들고 직접 실행할 수 있습니다.
@@ -158,13 +160,13 @@ python -m prompt_dispatcher validate
 python -m prompt_dispatcher list
 
 # 실제 수동 실행
-python -m prompt_dispatcher run morning-ai-news
+python -m prompt_dispatcher run <job-id>
 
 # 모델 응답은 받되 채널에는 보내지 않음
-python -m prompt_dispatcher run morning-ai-news --dry-run
+python -m prompt_dispatcher run <job-id> --dry-run
 
 # Open WebUI 호출 없이 렌더링된 프롬프트 확인
-python -m prompt_dispatcher run morning-ai-news --skip-openwebui
+python -m prompt_dispatcher run <job-id> --skip-openwebui
 ```
 
 자주 쓰는 Docker 명령은 `make build`, `make up`, `make down`, `make logs`, `make validate`, `make test`, `make run JOB=morning-ai-news`입니다.

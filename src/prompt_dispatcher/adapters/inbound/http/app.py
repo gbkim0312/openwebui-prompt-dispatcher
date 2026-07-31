@@ -79,6 +79,18 @@ def create_app(container: ApplicationContainer) -> FastAPI:
             for job in container.list_jobs.execute()
             for destination in job.destinations
         }
+        values = store.read_values()
+        if values.get("TELEGRAM_PERSONAL_BOT_TOKEN") and values.get("TELEGRAM_PERSONAL_CHAT_ID"):
+            destinations.add(("telegram", "personal"))
+        if all(
+            values.get(key)
+            for key in (
+                "NEXTCLOUD_TALK_PERSONAL_USERNAME",
+                "NEXTCLOUD_TALK_PERSONAL_APP_PASSWORD",
+                "NEXTCLOUD_TALK_PERSONAL_ROOM_TOKEN",
+            )
+        ):
+            destinations.add(("nextcloud_talk", "personal"))
         return [
             {"type": channel_type, "target": target}
             for channel_type, target in sorted(destinations)
