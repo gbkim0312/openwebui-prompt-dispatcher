@@ -1,6 +1,7 @@
 import logging
 from uuid import uuid4
 
+from prompt_dispatcher.adapters.outbound.search.tavily import TavilySearch
 from prompt_dispatcher.application.dto.commands import RunJobCommand
 from prompt_dispatcher.application.dto.results import RunJobResult
 from prompt_dispatcher.application.ports import (
@@ -13,6 +14,7 @@ from prompt_dispatcher.application.ports import (
 )
 from prompt_dispatcher.application.ports.model_catalog import ModelCatalogPort
 from prompt_dispatcher.application.services.channel_resolver import ChannelResolver
+from prompt_dispatcher.application.services.tavily_context import enrich_with_tavily
 from prompt_dispatcher.domain.delivery import DeliveryResult, OutboundMessage
 from prompt_dispatcher.domain.enums import DeliveryStatus, ExecutionStatus
 from prompt_dispatcher.domain.errors import JobNotFoundError
@@ -37,6 +39,7 @@ class RunJob:
         channel_resolver: ChannelResolver,
         clock: ClockPort,
         model_catalog: ModelCatalogPort | None = None,
+        tavily: TavilySearch | None = None,
     ) -> None:
         self._jobs, self._prompts, self._renderer = job_repository, prompt_loader, template_renderer
         self._openwebui, self._executions, self._channels, self._clock = (
@@ -46,6 +49,7 @@ class RunJob:
             clock,
         )
         self._model_catalog = model_catalog
+        self._tavily = tavily
 
     def execute(self, command: RunJobCommand) -> RunJobResult:
         if self._model_catalog is not None:
@@ -81,20 +85,22 @@ class RunJob:
                 "timezone": job.schedule.timezone,
             }
             prompt = self._renderer.render(template, variables)
-            content = (
-                prompt
-                if command.skip_openwebui
-                else self._openwebui.generate(
+            if command.skip_openwebui:
+                content = prompt
+            else:
+                prompt, tool_ids = enrich_with_tavily(
+                    prompt, job.openwebui_options.tool_ids, self._tavily
+                )
+                content = self._openwebui.generate(
                     OpenWebUiRequest(
                         job.openwebui_options.model,
                         prompt,
                         job.openwebui_options.skill_ids,
-                        job.openwebui_options.tool_ids,
+                        tool_ids,
                         job.openwebui_options.required_tool_ids,
                         job.openwebui_options.timeout_seconds,
                     )
                 ).content
-            )
             if not content.strip():
                 raise ValueError("Open WebUI returned empty content")
             logger.info(

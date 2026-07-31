@@ -98,7 +98,7 @@ python3 -m venv .venv
 
 모델 목록은 `data/models.json`에 캐시됩니다. UI는 이 캐시를 즉시 표시하며, 모든 Job 실행 시작 시 Open WebUI의 `/api/models`와 `/api/v1/models`를 모두 조회해 중복 없이 병합합니다. 모델 선택 영역의 **모델 새로고침** 버튼으로 즉시 갱신할 수도 있습니다. 변경된 목록은 열린 UI에도 자동 반영됩니다.
 
-즉시 전송에서 Open WebUI 스킬 또는 툴을 선택하면, 디스패처는 Open WebUI의 채팅 기반 API 흐름으로 실행합니다. 이때 API 키 소유자의 Open WebUI 채팅 목록에 `Prompt Dispatcher 실행` 기록이 생성되며, 툴 실행이 끝난 최종 응답을 가져와 전송합니다.
+`Web Search with Tavily` 툴을 선택하고 `TAVILY_API_KEY`를 설정하면, 디스패처가 Tavily 검색을 직접 실행한 뒤 검색 결과와 링크를 모델에 전달해 요약합니다. 따라서 다단계 Open WebUI 툴 호출에 의존하지 않습니다.
 
 UI에서 저장한 연결 키는 `data/management.env`에 저장됩니다. **키 저장 후 서비스를 재시작해야** 새 연결 설정이 적용됩니다. 이 파일은 Git에 포함되지 않습니다.
 
@@ -121,6 +121,7 @@ UI에서 저장한 연결 키는 `data/management.env`에 저장됩니다. **키
 | `OPENWEBUI_API_KEY` | 빈 값 | Open WebUI Bearer API 키입니다. 절대 Git에 저장하지 마세요. |
 | `OPENWEBUI_TIMEOUT_SECONDS` | `600` | 기본 Open WebUI 요청 제한 시간입니다. 개별 Job은 `openwebui.timeout_seconds`로 재정의합니다. |
 | `OPENWEBUI_VERIFY_TLS` | `true` | HTTPS 인증서 검증 여부입니다. 운영 환경에서는 `true`를 유지하세요. |
+| `TAVILY_API_KEY` | 빈 값 | `Web Search with Tavily` 선택 시 디스패처가 직접 호출할 Tavily API 키입니다. `tvly-`로 시작하는 비밀값이며 Git에 저장하지 마세요. |
 | `TELEGRAM_PERSONAL_BOT_TOKEN` | 빈 값 | `target: personal` Telegram 채널의 Bot Token입니다. target이 `team-alert`라면 `TELEGRAM_TEAM_ALERT_BOT_TOKEN` 형식을 사용합니다. |
 | `TELEGRAM_PERSONAL_CHAT_ID` | 빈 값 | 해당 Telegram target의 Chat ID입니다. target 별칭 규칙은 Bot Token과 같습니다. |
 | `NEXTCLOUD_URL` | 빈 값 | Nextcloud 서버 기본 URL입니다. |

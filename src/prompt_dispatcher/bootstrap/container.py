@@ -13,6 +13,7 @@ from prompt_dispatcher.adapters.outbound.repositories.sqlite_execution import (
     SqliteExecutionRepository,
 )
 from prompt_dispatcher.adapters.outbound.repositories.yaml_job import YamlJobRepository
+from prompt_dispatcher.adapters.outbound.search.tavily import TavilySearch
 from prompt_dispatcher.adapters.outbound.system.clock import SystemClock
 from prompt_dispatcher.adapters.outbound.templates.jinja_renderer import JinjaTemplateRenderer
 from prompt_dispatcher.application.ports.message_channel import MessageChannelPort
@@ -93,6 +94,7 @@ def build_container(settings: Settings | None = None) -> ApplicationContainer:
         settings.openwebui_base_url, settings.openwebui_api_key, settings.openwebui_verify_tls
     )
     model_catalog = CachedModelCatalog(openwebui, settings.database_path.parent / "models.json")
+    tavily = TavilySearch(settings.tavily_api_key)
     run = RunJob(
         jobs,
         FilePromptLoader(settings.prompts_directory),
@@ -102,8 +104,9 @@ def build_container(settings: Settings | None = None) -> ApplicationContainer:
         ChannelResolver(channels),
         clock,
         model_catalog,
+        tavily,
     )
-    send_prompt = SendPrompt(openwebui, ChannelResolver(channels), clock)
+    send_prompt = SendPrompt(openwebui, ChannelResolver(channels), clock, tavily)
     return ApplicationContainer(
         settings,
         jobs,

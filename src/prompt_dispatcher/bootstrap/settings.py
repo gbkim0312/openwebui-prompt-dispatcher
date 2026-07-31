@@ -51,6 +51,7 @@ class Settings:
     enable_fake_channel: bool
     nextcloud_url: str
     nextcloud_verify_tls: bool
+    tavily_api_key: str
 
     @classmethod
     def from_environment(cls) -> "Settings":
@@ -76,4 +77,5 @@ class Settings:
             _truth(os.getenv("ENABLE_FAKE_CHANNEL", "false")),
             value("NEXTCLOUD_URL"),
             _truth(os.getenv("NEXTCLOUD_VERIFY_TLS", "true")),
+            value("TAVILY_API_KEY"),
         )

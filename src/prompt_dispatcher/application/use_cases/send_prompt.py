@@ -1,9 +1,11 @@
 import logging
 from dataclasses import dataclass
 
+from prompt_dispatcher.adapters.outbound.search.tavily import TavilySearch
 from prompt_dispatcher.application.ports.clock import ClockPort
 from prompt_dispatcher.application.ports.openwebui import OpenWebUiPort
 from prompt_dispatcher.application.services.channel_resolver import ChannelResolver
+from prompt_dispatcher.application.services.tavily_context import enrich_with_tavily
 from prompt_dispatcher.domain.delivery import OutboundMessage
 from prompt_dispatcher.domain.job import ChannelDestination, OpenWebUiRequest
 
@@ -35,8 +37,10 @@ class SendPrompt:
         openwebui: OpenWebUiPort,
         channel_resolver: ChannelResolver,
         clock: ClockPort,
+        tavily: TavilySearch | None = None,
     ) -> None:
         self._openwebui, self._channels, self._clock = openwebui, channel_resolver, clock
+        self._tavily = tavily
 
     def execute(self, command: SendPromptCommand) -> SendPromptResult:
         if not command.prompt.strip():
@@ -52,12 +56,13 @@ class SendPrompt:
             len(command.skill_ids),
             len(command.tool_ids),
         )
+        prompt, tool_ids = enrich_with_tavily(command.prompt, command.tool_ids, self._tavily)
         response = self._openwebui.generate(
             OpenWebUiRequest(
                 command.model,
-                command.prompt,
+                prompt,
                 skill_ids=command.skill_ids,
-                tool_ids=command.tool_ids,
+                tool_ids=tool_ids,
                 timeout_seconds=command.timeout_seconds,
             )
         )
