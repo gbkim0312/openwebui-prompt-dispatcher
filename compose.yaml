@@ -3,6 +3,7 @@ services:
     image: ${IMAGE:-prompt-dispatcher:local}
     container_name: prompt-dispatcher
     restart: unless-stopped
+    user: "${PUID:-1000}:${PGID:-1000}"
     env_file: [.env]
     environment:
       TZ: Asia/Seoul

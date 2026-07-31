@@ -21,7 +21,7 @@ Open WebUI에 예약 프롬프트를 보내고, 생성된 응답을 Telegram 또
 cp .env.example .env
 # .env에 Open WebUI와 채널 정보를 채웁니다.
 docker build -t prompt-dispatcher:local .
-docker compose up -d
+PUID=$(id -u) PGID=$(id -g) docker compose up -d
 ```
 
 기본 빌드는 서비스 실행용 `runtime` 이미지를 만듭니다. 테스트 이미지를 명시적으로 만들 때만 `--target test`를 사용합니다.
@@ -34,20 +34,26 @@ docker run --rm prompt-dispatcher:test
 이미지를 다른 태그로 빌드했다면 해당 태그를 `IMAGE`에 지정합니다.
 
 ```bash
-IMAGE=내가-빌드한-이미지:태그 docker compose up -d
+PUID=$(id -u) PGID=$(id -g) IMAGE=내가-빌드한-이미지:태그 docker compose up -d
 ```
 
 기본 태그는 `prompt-dispatcher:local`입니다. 따라서 처음부터 빌드한다면 다음 조합을 사용할 수 있습니다.
 
 ```bash
 docker build -t prompt-dispatcher:local .
-docker compose up -d
+PUID=$(id -u) PGID=$(id -g) docker compose up -d
 ```
 
-Compose는 `.env`를 컨테이너 환경으로 전달하고, `jobs`, `prompts`, `data`를 호스트 디렉터리에 영속화합니다. Linux에서 처음 실행할 때 컨테이너가 이 디렉터리에 쓸 수 없다면 다음 한 번만 실행합니다.
+Compose는 `.env`를 컨테이너 환경으로 전달하고, `jobs`, `prompts`, `data`를 호스트 디렉터리에 영속화합니다. Linux에서는 반드시 현재 호스트 사용자의 UID/GID로 실행하세요.
 
 ```bash
-sudo chown -R 10001:10001 jobs prompts data
+PUID=$(id -u) PGID=$(id -g) docker compose up -d
+```
+
+이전에 root로 실행해 `data` 안의 파일이 root 소유가 된 경우에만 아래를 한 번 실행한 뒤 다시 시작합니다.
+
+```bash
+sudo chown -R "$(id -u):$(id -g)" data jobs prompts
 ```
 
 Compose 파일에는 의도적으로 `build:`가 없습니다. 먼저 로컬 이미지를 빌드해야 합니다.
