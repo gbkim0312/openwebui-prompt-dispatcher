@@ -88,7 +88,7 @@ class RunJob:
             if command.skip_openwebui:
                 content = prompt
             else:
-                tool_ids = job.openwebui_options.tool_ids
+                tool_ids: tuple[str, ...] = ()
                 if job.openwebui_options.web_search_time_range:
                     tool_ids = ("web_search_with_tavily",)
                 prompt, tool_ids = enrich_with_tavily(
@@ -101,7 +101,7 @@ class RunJob:
                     OpenWebUiRequest(
                         job.openwebui_options.model,
                         prompt,
-                        job.openwebui_options.skill_ids,
+                        (),
                         tool_ids,
                         job.openwebui_options.required_tool_ids,
                         job.openwebui_options.timeout_seconds,

@@ -57,7 +57,7 @@ class SendPrompt:
             len(command.skill_ids),
             len(command.tool_ids),
         )
-        tool_ids = command.tool_ids
+        tool_ids: tuple[str, ...] = ()
         if command.web_search_time_range:
             tool_ids = ("web_search_with_tavily",)
         prompt, tool_ids = enrich_with_tavily(
@@ -70,7 +70,7 @@ class SendPrompt:
             OpenWebUiRequest(
                 command.model,
                 prompt,
-                skill_ids=command.skill_ids,
+                skill_ids=(),
                 tool_ids=tool_ids,
                 timeout_seconds=command.timeout_seconds,
             )

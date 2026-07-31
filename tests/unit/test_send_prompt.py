@@ -4,7 +4,7 @@ from prompt_dispatcher.application.services.channel_resolver import ChannelResol
 from prompt_dispatcher.application.use_cases.send_prompt import SendPrompt, SendPromptCommand
 
 
-def test_send_prompt_passes_selected_skills_and_tools() -> None:
+def test_send_prompt_uses_no_skills_or_tools_without_web_search() -> None:
     client = FakeOpenWebUiClient("answer")
     use_case = SendPrompt(client, ChannelResolver([]), SystemClock())
 
@@ -21,6 +21,6 @@ def test_send_prompt_passes_selected_skills_and_tools() -> None:
     )
 
     assert result.content == "answer"
-    assert client.requests[0].skill_ids == ("skill-1",)
-    assert client.requests[0].tool_ids == ("tool-1",)
+    assert client.requests[0].skill_ids == ()
+    assert client.requests[0].tool_ids == ()
     assert client.requests[0].timeout_seconds == 123

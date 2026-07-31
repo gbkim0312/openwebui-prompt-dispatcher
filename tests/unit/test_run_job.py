@@ -48,7 +48,8 @@ def test_run_job_delivers_and_records_success() -> None:
     )
     result = use_case.execute(RunJobCommand("news"))
     assert result.status == ExecutionStatus.SUCCESS
-    assert client.requests[0].skill_ids == ("skill",)
+    assert client.requests[0].skill_ids == ()
+    assert client.requests[0].tool_ids == ()
     assert channel.sent_messages[0].body == "answer"
     assert repository.result_for(result.execution_id or "").status == ExecutionStatus.SUCCESS
 
