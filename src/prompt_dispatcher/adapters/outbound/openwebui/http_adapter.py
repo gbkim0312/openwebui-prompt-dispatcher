@@ -22,11 +22,14 @@ class HttpOpenWebUiAdapter:
         payload = {
             "model": request.model,
             "messages": [{"role": "user", "content": request.prompt}],
-            "skill_ids": list(request.skill_ids),
-            "tool_ids": list(request.tool_ids),
-            "required_tool_ids": list(request.required_tool_ids),
             "stream": False,
         }
+        if request.skill_ids:
+            payload["skill_ids"] = list(request.skill_ids)
+        if request.tool_ids:
+            payload["tool_ids"] = list(request.tool_ids)
+        if request.required_tool_ids:
+            payload["required_tool_ids"] = list(request.required_tool_ids)
         try:
             response = self._client.post(
                 f"{self._url}/api/chat/completions",
