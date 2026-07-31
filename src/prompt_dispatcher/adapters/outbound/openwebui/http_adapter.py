@@ -45,6 +45,7 @@ class HttpOpenWebUiAdapter:
             response.raise_for_status()
             data = response.json()
             content = data["choices"][0]["message"].get("content", "")
+            self._ensure_final_content(content)
             calls = tuple(str(call) for call in data["choices"][0]["message"].get("tool_calls", []))
             return OpenWebUiResponse(
                 content=content, model=data.get("model", request.model), tool_calls=calls
@@ -154,6 +155,7 @@ class HttpOpenWebUiAdapter:
                 message = messages.get(assistant_id, {}) if isinstance(messages, dict) else {}
                 content = message.get("content", "") if isinstance(message, dict) else ""
                 if isinstance(content, str) and content.strip():
+                    self._ensure_final_content(content)
                     return OpenWebUiResponse(content=content, model=request.model)
                 time.sleep(1)
             raise OpenWebUiError("Open WebUI tool response timed out")
@@ -163,6 +165,13 @@ class HttpOpenWebUiAdapter:
             ) from exc
         except (httpx.HTTPError, KeyError, TypeError, ValueError) as exc:
             raise OpenWebUiError("Open WebUI chat-backed tool generation failed") from exc
+
+    @staticmethod
+    def _ensure_final_content(content: object) -> None:
+        if isinstance(content, str) and content.lstrip().startswith("<|channel|>commentary"):
+            raise OpenWebUiError(
+                "Open WebUI returned an unresolved tool call instead of a final response"
+            )
 
     def list_models(self) -> tuple[str, ...]:
         models: set[str] = set()
