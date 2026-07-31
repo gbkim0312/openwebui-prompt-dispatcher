@@ -139,7 +139,7 @@ class HttpOpenWebUiAdapter:
                 response.raise_for_status()
                 for _ in response.iter_bytes():
                     pass
-            deadline = time.monotonic() + request.timeout_seconds
+            deadline = time.monotonic() + min(request.timeout_seconds, 90)
             while time.monotonic() < deadline:
                 stored = self._client.get(
                     f"{self._url}/api/v1/chats/{chat_id}",
