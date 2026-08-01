@@ -189,6 +189,11 @@ def create_app(container: ApplicationContainer) -> FastAPI:
         try:
             store.save_job(job_id, payload.document, payload.prompt)
             container.jobs.reload()
+            matching_errors = [
+                error for error in container.jobs.errors if error.startswith(f"{job_id}.job.yaml:")
+            ]
+            if matching_errors:
+                raise ValueError(matching_errors[0])
             container.register_schedules.execute()
         except Exception as error:
             raise HTTPException(422, str(error)) from error

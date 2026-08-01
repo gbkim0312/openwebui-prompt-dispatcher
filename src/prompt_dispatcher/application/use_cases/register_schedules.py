@@ -1,7 +1,11 @@
+import logging
+
 from prompt_dispatcher.application.dto.commands import RunJobCommand
 from prompt_dispatcher.application.ports.job_repository import JobRepositoryPort
 from prompt_dispatcher.application.ports.scheduler import SchedulerPort
 from prompt_dispatcher.application.use_cases.run_job import RunJob
+
+logger = logging.getLogger(__name__)
 
 
 class RegisterSchedules:
@@ -17,6 +21,14 @@ class RegisterSchedules:
                 def callback(job_id: str) -> None:
                     self._run.execute(RunJobCommand(job_id))
 
-                self._scheduler.register(job, callback)
-                count += 1
+                try:
+                    self._scheduler.register(job, callback)
+                    count += 1
+                except Exception as exc:
+                    logger.error(
+                        "event=schedule_registration_failed job_id=%s error_type=%s error=%s",
+                        job.id,
+                        type(exc).__name__,
+                        exc,
+                    )
         return count

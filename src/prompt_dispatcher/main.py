@@ -23,6 +23,8 @@ def main() -> None:
     container = build_container()
     configure_logging(container.settings)
     logging.getLogger(__name__).info("event=service_started command=%s", args.command)
+    for error in container.jobs.errors:
+        logging.getLogger(__name__).error("event=job_configuration_error error=%s", error)
     if args.command == "validate":
         for error in container.jobs.errors:
             print(error, file=sys.stderr)

@@ -3,6 +3,7 @@ from typing import Any
 from zoneinfo import ZoneInfo
 
 import yaml
+from apscheduler.triggers.cron import CronTrigger
 
 from prompt_dispatcher.domain.errors import JobValidationError
 from prompt_dispatcher.domain.job import (
@@ -53,6 +54,10 @@ class YamlJobRepository:
             ZoneInfo(schedule.get("timezone", ""))
         except Exception as exc:
             raise JobValidationError("timezone must be valid IANA name") from exc
+        try:
+            CronTrigger.from_crontab(cron, timezone=schedule["timezone"])
+        except (KeyError, TypeError, ValueError) as exc:
+            raise JobValidationError(f"invalid cron expression: {exc}") from exc
         if bool(prompt.get("file")) == bool(prompt.get("text")):
             raise JobValidationError("prompt requires exactly one of file or text")
         channels = delivery.get("channels", [])
