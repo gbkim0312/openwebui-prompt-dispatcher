@@ -180,6 +180,23 @@ def create_app(container: ApplicationContainer) -> FastAPI:
                     "retry_count": job.execution_policy.retry_count,
                     "retry_delay_seconds": job.execution_policy.retry_delay_seconds,
                 },
+                "research": {
+                    "tasks": [
+                        {
+                            "id": task.id,
+                            "name": task.name,
+                            "query": task.query,
+                            "summary_prompt": task.summary_prompt,
+                            "time_range": task.time_range,
+                            "topic": task.topic,
+                            "search_depth": task.search_depth,
+                            "max_results": task.max_results,
+                            "include_domains": list(task.include_domains),
+                            "exclude_domains": list(task.exclude_domains),
+                        }
+                        for task in job.research_tasks
+                    ]
+                },
             },
             "prompt": store.read_prompt(job_id),
         }

@@ -1,4 +1,5 @@
 from datetime import UTC, datetime
+from typing import cast
 
 from prompt_dispatcher.adapters.outbound.channels.fake import FakeMessageChannel
 from prompt_dispatcher.adapters.outbound.openwebui.http_adapter import FakeOpenWebUiClient
@@ -7,6 +8,7 @@ from prompt_dispatcher.adapters.outbound.repositories.in_memory import (
     InMemoryExecutionRepository,
     InMemoryJobRepository,
 )
+from prompt_dispatcher.adapters.outbound.search.tavily import TavilySearch
 from prompt_dispatcher.adapters.outbound.system.clock import FakeClock
 from prompt_dispatcher.adapters.outbound.templates.jinja_renderer import JinjaTemplateRenderer
 from prompt_dispatcher.application.dto.commands import RunJobCommand
@@ -18,6 +20,7 @@ from prompt_dispatcher.domain.job import (
     Job,
     OpenWebUiOptions,
     PromptDefinition,
+    ResearchTask,
     Schedule,
 )
 
@@ -77,3 +80,37 @@ def test_failed_channel_does_not_stop_following_channels() -> None:
     ).execute(RunJobCommand("j"))
     assert result.status == ExecutionStatus.PARTIAL_SUCCESS
     assert channel.sent_messages[0].target == "good"
+
+
+def test_run_job_combines_research_summaries_before_single_delivery() -> None:
+    class FakeTavily:
+        def search(self, query: str, *_: object) -> tuple[tuple[str, str, str], ...]:
+            assert query == "오늘 정치 뉴스"
+            return (("정치", "https://example.com", "요약"),)
+
+    job = Job(
+        "briefing",
+        "Briefing",
+        True,
+        Schedule("0 7 * * *", "UTC"),
+        OpenWebUiOptions("model"),
+        PromptDefinition(text="최종 브리핑:\n{{ research.politics }}"),
+        (ChannelDestination("fake", "one"),),
+        research_tasks=(ResearchTask("politics", "정치", "오늘 정치 뉴스"),),
+    )
+    channel, client = FakeMessageChannel(), FakeOpenWebUiClient("요약 결과")
+    result = RunJob(
+        InMemoryJobRepository([job]),
+        FakePromptLoader(),
+        JinjaTemplateRenderer(),
+        client,
+        InMemoryExecutionRepository(),
+        ChannelResolver([channel]),
+        FakeClock(datetime(2026, 1, 1, tzinfo=UTC)),
+        tavily=cast(TavilySearch, FakeTavily()),
+    ).execute(RunJobCommand("briefing"))
+
+    assert result.status == ExecutionStatus.SUCCESS
+    assert len(client.requests) == 2
+    assert "요약 결과" in client.requests[1].prompt
+    assert channel.sent_messages[0].body == "요약 결과"

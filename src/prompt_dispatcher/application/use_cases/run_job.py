@@ -84,6 +84,37 @@ class RunJob:
                 "current_datetime": now.isoformat(),
                 "timezone": job.schedule.timezone,
             }
+            research_results: dict[str, str] = {}
+            for task in job.research_tasks:
+                search_query = self._renderer.render(task.query, variables)
+                summary_instruction = self._renderer.render(
+                    task.summary_prompt
+                    or f"{task.name} 관련 검색 결과를 한국어로 핵심 사실과 출처 중심으로 요약하세요.",
+                    variables,
+                )
+                research_prompt, _ = enrich_with_tavily(
+                    summary_instruction,
+                    ("web_search_with_tavily",),
+                    self._tavily,
+                    task.time_range,
+                    search_query,
+                    task.topic,
+                    task.search_depth,
+                    task.max_results,
+                    task.include_domains,
+                    task.exclude_domains,
+                )
+                response = self._openwebui.generate(
+                    OpenWebUiRequest(job.openwebui_options.model, research_prompt)
+                )
+                if not response.content.strip():
+                    raise ValueError(f"Research task returned empty content: {task.id}")
+                research_results[task.id] = response.content
+            if research_results:
+                variables["research"] = research_results
+                variables["research_context"] = "\n\n".join(
+                    f"## {task.name}\n{research_results[task.id]}" for task in job.research_tasks
+                )
             prompt = self._renderer.render(template, variables)
             if command.skip_openwebui:
                 content = prompt
@@ -91,7 +122,7 @@ class RunJob:
                 tool_ids: tuple[str, ...] = ()
                 if job.openwebui_options.web_search_time_range:
                     tool_ids = ("web_search_with_tavily",)
-                search_query = (
+                final_search_query: str | None = (
                     self._renderer.render(job.openwebui_options.web_search_query, variables)
                     if job.openwebui_options.web_search_query
                     else None
@@ -101,7 +132,7 @@ class RunJob:
                     tool_ids,
                     self._tavily,
                     job.openwebui_options.web_search_time_range or "week",
-                    search_query,
+                    final_search_query,
                     job.openwebui_options.web_search_topic,
                     job.openwebui_options.web_search_depth,
                     job.openwebui_options.web_search_max_results,

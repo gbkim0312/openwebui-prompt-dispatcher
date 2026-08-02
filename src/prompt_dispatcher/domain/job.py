@@ -48,6 +48,20 @@ class ExecutionPolicy:
 
 
 @dataclass(frozen=True)
+class ResearchTask:
+    id: str
+    name: str
+    query: str
+    summary_prompt: str = ""
+    time_range: str = "day"
+    topic: str = "news"
+    search_depth: str = "basic"
+    max_results: int = 5
+    include_domains: tuple[str, ...] = ()
+    exclude_domains: tuple[str, ...] = ()
+
+
+@dataclass(frozen=True)
 class Job:
     id: str
     name: str
@@ -57,6 +71,7 @@ class Job:
     prompt_definition: PromptDefinition
     destinations: tuple[ChannelDestination, ...]
     execution_policy: ExecutionPolicy = field(default_factory=ExecutionPolicy)
+    research_tasks: tuple[ResearchTask, ...] = ()
 
 
 @dataclass(frozen=True)

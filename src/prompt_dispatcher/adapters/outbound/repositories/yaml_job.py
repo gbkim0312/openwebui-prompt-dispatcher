@@ -12,6 +12,7 @@ from prompt_dispatcher.domain.job import (
     Job,
     OpenWebUiOptions,
     PromptDefinition,
+    ResearchTask,
     Schedule,
 )
 
@@ -39,12 +40,13 @@ class YamlJobRepository:
     def _map(self, raw: dict[str, Any]) -> Job:
         if raw.get("version") != 1:
             raise JobValidationError("version must be 1")
-        schedule, prompt, delivery, execution, webui = (
+        schedule, prompt, delivery, execution, webui, research = (
             raw.get("schedule", {}),
             raw.get("prompt", {}),
             raw.get("delivery", {}),
             raw.get("execution", {}),
             raw.get("openwebui", {}),
+            raw.get("research", {}),
         )
         cron = str(schedule.get("cron", ""))
         fields = cron.split()
@@ -108,6 +110,44 @@ class YamlJobRepository:
                 int(execution.get("retry_count", 0)),
                 int(execution.get("retry_delay_seconds", 1)),
             ),
+            tuple(self._map_research_task(item) for item in research.get("tasks", [])),
+        )
+
+    @staticmethod
+    def _map_research_task(raw: object) -> ResearchTask:
+        if not isinstance(raw, dict):
+            raise JobValidationError("research.tasks must contain objects")
+        task_id = str(raw.get("id", ""))
+        if not task_id or not task_id.replace("_", "").isalnum():
+            raise JobValidationError(
+                "research task id may use letters, numbers, and underscores only"
+            )
+        query = str(raw.get("query", ""))
+        if not query:
+            raise JobValidationError("research task query is required")
+        time_range = str(raw.get("time_range", "day"))
+        topic = str(raw.get("topic", "news"))
+        depth = str(raw.get("search_depth", "basic"))
+        max_results = int(raw.get("max_results", 5))
+        if time_range not in {"day", "week", "month", "year"}:
+            raise JobValidationError("research task time_range is invalid")
+        if topic not in {"general", "news", "finance"}:
+            raise JobValidationError("research task topic is invalid")
+        if depth not in {"basic", "fast", "advanced", "ultra-fast"}:
+            raise JobValidationError("research task search_depth is invalid")
+        if not 1 <= max_results <= 20:
+            raise JobValidationError("research task max_results must be between 1 and 20")
+        return ResearchTask(
+            task_id,
+            str(raw.get("name") or task_id),
+            query,
+            str(raw.get("summary_prompt", "")),
+            time_range,
+            topic,
+            depth,
+            max_results,
+            tuple(str(value) for value in raw.get("include_domains", [])),
+            tuple(str(value) for value in raw.get("exclude_domains", [])),
         )
 
     def find_all(self) -> list[Job]:
