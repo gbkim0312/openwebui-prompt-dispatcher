@@ -59,6 +59,7 @@ class ResearchTask:
     max_results: int = 5
     include_domains: tuple[str, ...] = ()
     exclude_domains: tuple[str, ...] = ()
+    model: str | None = None
 
 
 @dataclass(frozen=True)
@@ -72,6 +73,7 @@ class Job:
     destinations: tuple[ChannelDestination, ...]
     execution_policy: ExecutionPolicy = field(default_factory=ExecutionPolicy)
     research_tasks: tuple[ResearchTask, ...] = ()
+    research_use_parent_model: bool = True
 
 
 @dataclass(frozen=True)

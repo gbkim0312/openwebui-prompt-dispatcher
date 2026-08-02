@@ -86,6 +86,11 @@ class RunJob:
             }
             research_results: dict[str, str] = {}
             for task in job.research_tasks:
+                task_model = (
+                    job.openwebui_options.model if job.research_use_parent_model else task.model
+                )
+                if not task_model:
+                    raise ValueError(f"Research task model is required: {task.id}")
                 search_query = self._renderer.render(task.query, variables)
                 summary_instruction = self._renderer.render(
                     task.summary_prompt
@@ -104,9 +109,7 @@ class RunJob:
                     task.include_domains,
                     task.exclude_domains,
                 )
-                response = self._openwebui.generate(
-                    OpenWebUiRequest(job.openwebui_options.model, research_prompt)
-                )
+                response = self._openwebui.generate(OpenWebUiRequest(task_model, research_prompt))
                 if not response.content.strip():
                     raise ValueError(f"Research task returned empty content: {task.id}")
                 research_results[task.id] = response.content

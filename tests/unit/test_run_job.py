@@ -96,7 +96,10 @@ def test_run_job_combines_research_summaries_before_single_delivery() -> None:
         OpenWebUiOptions("model"),
         PromptDefinition(text="최종 브리핑:\n{{ research.politics }}"),
         (ChannelDestination("fake", "one"),),
-        research_tasks=(ResearchTask("politics", "정치", "오늘 정치 뉴스"),),
+        research_tasks=(
+            ResearchTask("politics", "정치", "오늘 정치 뉴스", model="research-model"),
+        ),
+        research_use_parent_model=False,
     )
     channel, client = FakeMessageChannel(), FakeOpenWebUiClient("요약 결과")
     result = RunJob(
@@ -112,5 +115,7 @@ def test_run_job_combines_research_summaries_before_single_delivery() -> None:
 
     assert result.status == ExecutionStatus.SUCCESS
     assert len(client.requests) == 2
+    assert client.requests[0].model == "research-model"
+    assert client.requests[1].model == "model"
     assert "요약 결과" in client.requests[1].prompt
     assert channel.sent_messages[0].body == "요약 결과"

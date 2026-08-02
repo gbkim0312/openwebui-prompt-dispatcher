@@ -111,6 +111,7 @@ class YamlJobRepository:
                 int(execution.get("retry_delay_seconds", 1)),
             ),
             tuple(self._map_research_task(item) for item in research.get("tasks", [])),
+            bool(research.get("use_parent_model", True)),
         )
 
     @staticmethod
@@ -148,6 +149,7 @@ class YamlJobRepository:
             max_results,
             tuple(str(value) for value in raw.get("include_domains", [])),
             tuple(str(value) for value in raw.get("exclude_domains", [])),
+            str(raw["model"]) if raw.get("model") else None,
         )
 
     def find_all(self) -> list[Job]:

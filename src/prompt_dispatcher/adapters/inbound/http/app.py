@@ -193,9 +193,11 @@ def create_app(container: ApplicationContainer) -> FastAPI:
                             "max_results": task.max_results,
                             "include_domains": list(task.include_domains),
                             "exclude_domains": list(task.exclude_domains),
+                            "model": task.model,
                         }
                         for task in job.research_tasks
-                    ]
+                    ],
+                    "use_parent_model": job.research_use_parent_model,
                 },
             },
             "prompt": store.read_prompt(job_id),
