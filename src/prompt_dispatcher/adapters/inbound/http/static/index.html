@@ -86,4 +86,11 @@ saveJob=async function(){const tasks=collectResearchTasks(),useParentModel=$('#r
 #research-task-list{display:grid;gap:18px;padding:8px 2px 12px}
 #research-task-list .settings-group{margin:0;padding:22px;background:#f9fbfd}
 #research-task-list .settings-group>.row{margin-bottom:8px}
+</style><script>
+function decorateResearchCards(){for(const card of document.querySelectorAll('#research-task-list .settings-group:not([data-collapse-ready])')){card.dataset.collapseReady='true';card.classList.add('research-collapsed');const header=card.querySelector(':scope > .row'),toggle=document.createElement('button');toggle.type='button';toggle.className='secondary research-toggle';toggle.textContent='펼치기';toggle.onclick=()=>{const collapsed=card.classList.toggle('research-collapsed');toggle.textContent=collapsed?'펼치기':'접기'};header?.insertBefore(toggle,header.querySelector('.danger'))}}
+new MutationObserver(decorateResearchCards).observe(document.body,{childList:true,subtree:true});
+decorateResearchCards();
+</script><style>
+#research-task-list .research-collapsed>.cols{display:none}
+#research-task-list .research-toggle{margin-left:auto}
 </style></body></html>
