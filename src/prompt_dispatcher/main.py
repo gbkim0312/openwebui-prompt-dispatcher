@@ -4,6 +4,7 @@ import sys
 
 from prompt_dispatcher.adapters.inbound.http.app import create_app
 from prompt_dispatcher.application.dto.commands import RunJobCommand
+from prompt_dispatcher.application.use_cases.recover_executions import RecoverAbandonedExecutions
 from prompt_dispatcher.bootstrap.container import build_container
 from prompt_dispatcher.bootstrap.logging import configure_logging
 
@@ -22,7 +23,17 @@ def main() -> None:
     args = parser.parse_args()
     container = build_container()
     configure_logging(container.settings)
-    logging.getLogger(__name__).info("event=service_started command=%s", args.command)
+    logger = logging.getLogger(__name__)
+    logger.info("event=service_started command=%s", args.command)
+    if args.command == "serve":
+        # A container stop cannot run the use case's completion handler.  On
+        # the next single-instance service start, those records are no longer
+        # running work and must not permanently block their jobs.
+        recovered = RecoverAbandonedExecutions(container.executions, container.clock).execute(
+            older_than_seconds=0
+        )
+        if recovered:
+            logger.warning("event=abandoned_executions_recovered count=%s", recovered)
     for error in container.jobs.errors:
         logging.getLogger(__name__).error("event=job_configuration_error error=%s", error)
     if args.command == "validate":

@@ -27,3 +27,16 @@ def test_sqlite_stores_and_searches_execution_response(tmp_path) -> None:
     assert len(history) == 1
     assert history[0].response_content == "AI 뉴스 요약"
     assert repository.get_history("one") == history[0]
+
+
+def test_sqlite_recovers_running_execution_after_service_restart(tmp_path) -> None:
+    repository = SqliteExecutionRepository(tmp_path / "db.sqlite")
+    started = datetime(2026, 1, 1, tzinfo=UTC)
+    assert repository.try_start(Execution("one", "news", started, started))
+
+    assert repository.recover_abandoned(datetime(2026, 1, 1, 0, 1, tzinfo=UTC)) == 1
+
+    record = repository.get_history("one")
+    assert record is not None
+    assert record.status == ExecutionStatus.ABANDONED
+    assert repository.find_running("news") is None
