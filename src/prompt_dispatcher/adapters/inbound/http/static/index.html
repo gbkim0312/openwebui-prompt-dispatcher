@@ -334,11 +334,14 @@ function refreshResearchCardSummaries(){
     const header=card.querySelector(':scope > .row'),model=card.querySelector('.research-model'),summary=header?.querySelector('.research-model-summary');
     if(!summary)return;
     const days=[...card.querySelectorAll('.research-day:checked')].map(input=>labels[input.value]||input.value);
-    const value=`모델: ${model?.value||'미선택'} · 요일: ${days.join('·')||'없음'}`;
+    const flags=[];
+    if(card.querySelector('.research-depth')?.value==='advanced')flags.push('상세 검색');
+    if(card.querySelector('.research-raw-content input')?.checked)flags.push('원문 포함');
+    const value=`모델: ${model?.value||'미선택'} · 요일: ${days.join('·')||'없음'}${flags.length?' · '+flags.join(' · '):''}`;
     if(summary.textContent!==value)summary.textContent=value;
   }
 }
-document.addEventListener('change',event=>{if(event.target.matches?.('.research-day,.research-model,#schedule-picker input'))queueMicrotask(refreshResearchCardSummaries)});
+document.addEventListener('change',event=>{if(event.target.matches?.('.research-day,.research-model,.research-depth,.research-raw-content input,#schedule-picker input'))queueMicrotask(refreshResearchCardSummaries)});
 document.addEventListener('input',event=>{if(event.target.matches?.('.research-name'))queueMicrotask(refreshResearchCardSummaries)});
 new MutationObserver(refreshResearchCardSummaries).observe(document.body,{childList:true,subtree:true});
 refreshResearchCardSummaries();
@@ -348,7 +351,7 @@ function decorateResearchRawContent(){
     const cols=card.querySelector('.cols');if(!cols)return;
     const control=document.createElement('div');control.className='wide research-raw-content';
     const checked=researchTasksUi[index]?.include_raw_content===true;
-    control.innerHTML=`<label class="research-raw-content-label"><input type="checkbox" ${checked?'checked':''}> Tavily 원문 콘텐츠 포함 <span class="muted">(더 정확한 요약에 유용하지만 응답량·처리 시간이 증가할 수 있습니다)</span></label>`;
+    control.innerHTML=`<label class="research-raw-content-label"><input type="checkbox" ${checked?'checked':''}> 원문 콘텐츠 포함</label>`;
     cols.append(control);
   });
 }
@@ -388,4 +391,6 @@ window.testJobPrompt=async function(){
 };
 new MutationObserver(addJobUnlockButton).observe(document.body,{childList:true,subtree:true});
 addJobUnlockButton();
-</script></body></html>
+</script><style>
+.research-raw-content{padding-top:2px}.research-raw-content-label{display:flex;align-items:center;gap:7px;margin:0;font-weight:600}.research-raw-content-label input{width:auto;margin:0}
+</style></body></html>
