@@ -249,14 +249,18 @@ def create_app(container: ApplicationContainer) -> FastAPI:
         skip_openwebui: bool = False,
         allow_disabled: bool = False,
     ) -> dict[str, str | None]:
-        result = container.run_job.execute(
-            RunJobCommand(
-                job_id,
-                dry_run=dry_run,
-                skip_openwebui=skip_openwebui,
-                allow_disabled=allow_disabled,
+        try:
+            result = container.run_job.execute(
+                RunJobCommand(
+                    job_id,
+                    dry_run=dry_run,
+                    skip_openwebui=skip_openwebui,
+                    allow_disabled=allow_disabled,
+                )
             )
-        )
+        except Exception as error:
+            logger.exception("event=job_run_api_failed job_id=%s", job_id)
+            raise HTTPException(500, str(error)) from error
         return {
             "status": result.status,
             "execution_id": result.execution_id,
