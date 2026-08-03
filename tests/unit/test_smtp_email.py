@@ -47,7 +47,9 @@ def test_smtp_email_sends_to_configured_recipients() -> None:
         smtp_factory=lambda *_args, **_kwargs: client,  # type: ignore[arg-type]
     )
 
-    receipt = channel.send("personal", OutboundMessage("뉴스", "메일 본문"))
+    receipt = channel.send(
+        "personal", OutboundMessage("뉴스", "# 메일 제목\n\n- **핵심**: [출처](https://example.com)")
+    )
 
     assert receipt.external_id
     assert client.tls_started
@@ -56,7 +58,11 @@ def test_smtp_email_sends_to_configured_recipients() -> None:
     assert client.sent is not None
     assert client.sent["To"] == "one@example.com, two@example.com"
     assert client.sent["Subject"] == "뉴스"
-    assert client.sent.get_content().strip() == "메일 본문"
+    assert client.sent.get_body(("plain",)).get_content().strip().startswith("# 메일 제목")
+    html = client.sent.get_body(("html",)).get_content()
+    assert "<h2>메일 제목</h2>" in html
+    assert "<strong>핵심</strong>" in html
+    assert 'href="https://example.com"' in html
 
 
 def test_smtp_email_rejects_unknown_target() -> None:
