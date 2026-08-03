@@ -105,6 +105,22 @@ class SqliteExecutionRepository:
             )
             return cursor.rowcount
 
+    def abandon_running(self, job_id: str, finished_at: datetime) -> int:
+        with self._connect() as c:
+            cursor = c.execute(
+                "UPDATE executions SET status=?,finished_at=?,error_type=?,error_message=? "
+                "WHERE job_id=? AND status=?",
+                (
+                    ExecutionStatus.ABANDONED.value,
+                    finished_at.isoformat(),
+                    "ManualUnlock",
+                    "Execution lock manually released from Web UI",
+                    job_id,
+                    ExecutionStatus.RUNNING.value,
+                ),
+            )
+            return cursor.rowcount
+
     def purge_before(self, older_than: datetime) -> int:
         try:
             with self._connect() as c:

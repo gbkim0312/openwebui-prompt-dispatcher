@@ -56,6 +56,19 @@ class InMemoryExecutionRepository:
                 count += 1
         return count
 
+    def abandon_running(self, job_id: str, finished_at: datetime) -> int:
+        count = 0
+        for execution in self.executions:
+            if execution.job_id == job_id and execution.id not in self._results:
+                self._results[execution.id] = ExecutionResult(
+                    ExecutionStatus.ABANDONED,
+                    finished_at,
+                    error_type="ManualUnlock",
+                    error_message="Execution lock manually released from Web UI",
+                )
+                count += 1
+        return count
+
     def purge_before(self, older_than: datetime) -> int:
         obsolete = [item.id for item in self.executions if item.started_at < older_than]
         self.executions = [item for item in self.executions if item.id not in obsolete]

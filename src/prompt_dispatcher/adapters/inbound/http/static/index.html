@@ -342,4 +342,36 @@ document.addEventListener('change',event=>{if(event.target.matches?.('.research-
 document.addEventListener('input',event=>{if(event.target.matches?.('.research-name'))queueMicrotask(refreshResearchCardSummaries)});
 new MutationObserver(refreshResearchCardSummaries).observe(document.body,{childList:true,subtree:true});
 refreshResearchCardSummaries();
+window.unlockCurrentJob=async function(){
+  const result=$('#job-test-result');if(!current||!result)return;
+  result.textContent='실행 잠금을 해제하는 중입니다…';
+  try{
+    const data=await api(`/api/jobs/${encodeURIComponent(current)}/unlock`,{method:'POST'});
+    result.textContent=data.count?`실행 잠금을 해제했습니다 (${data.count}건). 이제 테스트 전송을 다시 누르세요.`:'해제할 실행 잠금이 없습니다.';
+  }catch(error){result.textContent='잠금 해제 실패: '+error.message}
+};
+function addJobUnlockButton(){
+  const testButton=document.querySelector('button[onclick="testJobPrompt()"]');
+  if(!testButton||testButton.parentElement?.querySelector('.job-unlock-button'))return;
+  const button=document.createElement('button');button.type='button';button.className='secondary job-unlock-button';button.textContent='실행 잠금 해제';button.onclick=unlockCurrentJob;
+  testButton.insertAdjacentElement('afterend',button);
+}
+const testJobPromptBeforeSkippedMessage=testJobPrompt;
+window.testJobPrompt=async function(){
+  if(jobResearchTestInProgress)return;
+  const result=$('#job-test-result'),button=document.querySelector('button[onclick="testJobPrompt()"]');
+  jobResearchTestInProgress=true;if(button){button.disabled=true;button.textContent='저장 및 테스트 실행 중…'}
+  result.textContent='현재 설정을 저장한 뒤 리서치·최종 요약·실제 채널 전송을 실행 중입니다…';
+  try{
+    const saved=await saveJob();if(!saved){result.textContent='저장에 실패해 테스트를 중단했습니다.';return}
+    const data=await api(`/api/jobs/${current}/run?dry_run=false&allow_disabled=true`,{method:'POST'});
+    if(data.status==='SKIPPED'){
+      result.textContent=`테스트 미실행: ${data.message||'작업이 이미 실행 중입니다.'}\n\n실제 실행이 끝날 때까지 기다리거나, 중단된 이전 실행이라면 “실행 잠금 해제” 후 다시 시도하세요.`;
+      return;
+    }
+    result.textContent=`테스트 전송 완료: ${data.status}${data.message?' · '+data.message:''}\n\n하위 리서치와 최종 종합 결과가 선택한 채널로 전송되었습니다.`;
+  }catch(error){result.textContent='테스트 실패: '+error.message}finally{jobResearchTestInProgress=false;if(button){button.disabled=false;button.textContent='테스트 전송'}}
+};
+new MutationObserver(addJobUnlockButton).observe(document.body,{childList:true,subtree:true});
+addJobUnlockButton();
 </script></body></html>

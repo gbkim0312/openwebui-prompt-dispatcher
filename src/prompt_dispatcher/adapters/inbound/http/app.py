@@ -268,6 +268,17 @@ def create_app(container: ApplicationContainer) -> FastAPI:
             "message": result.message,
         }
 
+    @app.post("/api/jobs/{job_id}/unlock")
+    def unlock_job(job_id: str) -> dict[str, object]:
+        job = container.jobs.find_by_id(job_id)
+        if job is None:
+            raise HTTPException(404, "Job not found")
+        count = container.executions.abandon_running(
+            job_id, container.clock.now(job.schedule.timezone)
+        )
+        logger.warning("event=job_execution_unlocked job_id=%s count=%s", job_id, count)
+        return {"status": "unlocked", "count": count}
+
     @app.post("/api/prompt/send")
     def send_prompt(payload: InstantPromptPayload) -> dict[str, object]:
         try:

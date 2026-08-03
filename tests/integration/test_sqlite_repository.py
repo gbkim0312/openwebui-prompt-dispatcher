@@ -40,3 +40,13 @@ def test_sqlite_recovers_running_execution_after_service_restart(tmp_path) -> No
     assert record is not None
     assert record.status == ExecutionStatus.ABANDONED
     assert repository.find_running("news") is None
+
+
+def test_sqlite_can_manually_release_a_job_execution_lock(tmp_path) -> None:
+    repository = SqliteExecutionRepository(tmp_path / "db.sqlite")
+    now = datetime(2026, 1, 1, tzinfo=UTC)
+    assert repository.try_start(Execution("one", "news", now, now))
+
+    assert repository.abandon_running("news", now) == 1
+    assert repository.find_running("news") is None
+    assert repository.get_history("one").status == ExecutionStatus.ABANDONED  # type: ignore[union-attr]
