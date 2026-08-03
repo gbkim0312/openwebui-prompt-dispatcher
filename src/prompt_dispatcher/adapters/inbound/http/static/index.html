@@ -328,4 +328,17 @@ window.sendInstantPrompt=async function(){
   if(unregistered){$('#instant-result').textContent='이메일 수신자를 입력한 뒤 “수신자 등록”을 눌러주세요.';return}
   return sendInstantPromptBeforeRecipientRegistration();
 };
+function refreshResearchCardSummaries(){
+  const labels={mon:'월',tue:'화',wed:'수',thu:'목',fri:'금',sat:'토',sun:'일'};
+  for(const card of document.querySelectorAll('#research-task-list .settings-group')){
+    const header=card.querySelector(':scope > .row'),model=card.querySelector('.research-model'),summary=header?.querySelector('.research-model-summary');
+    if(!summary)return;
+    const days=[...card.querySelectorAll('.research-day:checked')].map(input=>labels[input.value]||input.value);
+    summary.textContent=`모델: ${model?.value||'미선택'} · 요일: ${days.join('·')||'없음'}`;
+  }
+}
+document.addEventListener('change',event=>{if(event.target.matches?.('.research-day,.research-model,#schedule-picker input'))queueMicrotask(refreshResearchCardSummaries)});
+document.addEventListener('input',event=>{if(event.target.matches?.('.research-name'))queueMicrotask(refreshResearchCardSummaries)});
+new MutationObserver(refreshResearchCardSummaries).observe(document.body,{childList:true,subtree:true});
+refreshResearchCardSummaries();
 </script></body></html>
