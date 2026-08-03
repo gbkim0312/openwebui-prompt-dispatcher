@@ -60,7 +60,7 @@ class RunJob:
         job = self._jobs.find_by_id(command.job_id)
         if job is None:
             raise JobNotFoundError(f"Job not found: {command.job_id}")
-        if not job.enabled:
+        if not job.enabled and not command.allow_disabled:
             logger.info("event=job_skipped job_id=%s reason=disabled", job.id)
             return RunJobResult(None, ExecutionStatus.SKIPPED, "Job is disabled")
         now = self._clock.now(job.schedule.timezone)

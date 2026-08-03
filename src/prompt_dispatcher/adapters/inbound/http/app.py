@@ -227,10 +227,18 @@ def create_app(container: ApplicationContainer) -> FastAPI:
 
     @app.post("/api/jobs/{job_id}/run")
     def run_job(
-        job_id: str, dry_run: bool = False, skip_openwebui: bool = False
+        job_id: str,
+        dry_run: bool = False,
+        skip_openwebui: bool = False,
+        allow_disabled: bool = False,
     ) -> dict[str, str | None]:
         result = container.run_job.execute(
-            RunJobCommand(job_id, dry_run=dry_run, skip_openwebui=skip_openwebui)
+            RunJobCommand(
+                job_id,
+                dry_run=dry_run,
+                skip_openwebui=skip_openwebui,
+                allow_disabled=allow_disabled,
+            )
         )
         return {
             "status": result.status,

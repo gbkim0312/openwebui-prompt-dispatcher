@@ -9,3 +9,4 @@ class RunJobCommand:
     dry_run: bool = False
     skip_openwebui: bool = False
     fake_channel: bool = False
+    allow_disabled: bool = False

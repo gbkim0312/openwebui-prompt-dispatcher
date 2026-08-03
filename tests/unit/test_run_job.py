@@ -82,6 +82,29 @@ def test_failed_channel_does_not_stop_following_channels() -> None:
     assert channel.sent_messages[0].target == "good"
 
 
+def test_run_job_can_test_a_disabled_job() -> None:
+    job = Job(
+        "disabled",
+        "Disabled",
+        False,
+        Schedule("0 0 * * *", "UTC"),
+        OpenWebUiOptions("model"),
+        PromptDefinition(text="hello"),
+        (ChannelDestination("fake", "one"),),
+    )
+    result = RunJob(
+        InMemoryJobRepository([job]),
+        FakePromptLoader(),
+        JinjaTemplateRenderer(),
+        FakeOpenWebUiClient(),
+        InMemoryExecutionRepository(),
+        ChannelResolver([FakeMessageChannel()]),
+        FakeClock(datetime(2026, 1, 1, tzinfo=UTC)),
+    ).execute(RunJobCommand("disabled", allow_disabled=True))
+
+    assert result.status == ExecutionStatus.SUCCESS
+
+
 def test_run_job_combines_research_summaries_before_single_delivery() -> None:
     class FakeTavily:
         def search(self, query: str, *_: object) -> tuple[tuple[str, str, str], ...]:
