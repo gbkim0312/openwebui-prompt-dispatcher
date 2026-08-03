@@ -89,39 +89,55 @@ class RunJob:
                 "timezone": job.schedule.timezone,
             }
             research_results: dict[str, str] = {}
+            research_failures: dict[str, str] = {}
             for task in job.research_tasks:
                 if not task.enabled:
                     logger.info("event=research_task_skipped job_id=%s task_id=%s", job.id, task.id)
                     continue
-                task_model = (
-                    job.openwebui_options.model if job.research_use_parent_model else task.model
-                )
-                if not task_model:
-                    raise ValueError(f"Research task model is required: {task.id}")
-                search_query = self._renderer.render(task.query, variables)
-                summary_instruction = self._renderer.render(
-                    task.summary_prompt
-                    or f"{task.name} 관련 검색 결과를 한국어로 핵심 사실과 출처 중심으로 요약하세요.",
-                    variables,
-                )
-                research_prompt, _ = enrich_with_tavily(
-                    summary_instruction,
-                    ("web_search_with_tavily",),
-                    self._tavily,
-                    task.time_range,
-                    search_query,
-                    task.topic,
-                    task.search_depth,
-                    task.max_results,
-                    task.include_domains,
-                    task.exclude_domains,
-                )
-                response = self._openwebui.generate(OpenWebUiRequest(task_model, research_prompt))
-                if not response.content.strip():
-                    raise ValueError(f"Research task returned empty content: {task.id}")
-                research_results[task.id] = response.content
+                try:
+                    task_model = (
+                        job.openwebui_options.model if job.research_use_parent_model else task.model
+                    )
+                    if not task_model:
+                        raise ValueError(f"Research task model is required: {task.id}")
+                    search_query = self._renderer.render(task.query, variables)
+                    summary_instruction = self._renderer.render(
+                        task.summary_prompt
+                        or f"{task.name} 관련 검색 결과를 한국어로 핵심 사실과 출처 중심으로 요약하세요.",
+                        variables,
+                    )
+                    research_prompt, _ = enrich_with_tavily(
+                        summary_instruction,
+                        ("web_search_with_tavily",),
+                        self._tavily,
+                        task.time_range,
+                        search_query,
+                        task.topic,
+                        task.search_depth,
+                        task.max_results,
+                        task.include_domains,
+                        task.exclude_domains,
+                    )
+                    response = self._openwebui.generate(OpenWebUiRequest(task_model, research_prompt))
+                    if not response.content.strip():
+                        raise ValueError(f"Research task returned empty content: {task.id}")
+                    research_results[task.id] = response.content
+                except Exception as error:
+                    research_failures[task.id] = type(error).__name__
+                    research_results[task.id] = (
+                        f"[리서치 실패: {task.name} 결과를 가져오지 못했습니다. "
+                        "이 항목은 최종 브리핑에서 제외하세요.]"
+                    )
+                    logger.warning(
+                        "event=research_task_failed job_id=%s execution_id=%s task_id=%s error_type=%s",
+                        job.id,
+                        execution.id,
+                        task.id,
+                        type(error).__name__,
+                    )
             if research_results:
                 variables["research"] = research_results
+                variables["research_failures"] = research_failures
                 variables["research_context"] = "\n\n".join(
                     f"## {task.name}\n{research_results[task.id]}"
                     for task in job.research_tasks

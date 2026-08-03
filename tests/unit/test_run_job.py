@@ -19,6 +19,7 @@ from prompt_dispatcher.domain.job import (
     ChannelDestination,
     Job,
     OpenWebUiOptions,
+    OpenWebUiResponse,
     PromptDefinition,
     ResearchTask,
     Schedule,
@@ -142,6 +143,56 @@ def test_run_job_combines_research_summaries_before_single_delivery() -> None:
     assert client.requests[1].model == "model"
     assert "요약 결과" in client.requests[1].prompt
     assert channel.sent_messages[0].body == "요약 결과"
+
+
+def test_failed_research_task_does_not_stop_final_briefing() -> None:
+    class FakeTavily:
+        def search(self, *_: object) -> tuple[tuple[str, str, str], ...]:
+            return (("기사", "https://example.com", "요약"),)
+
+    class SequencedClient:
+        def __init__(self) -> None:
+            self.calls = 0
+            self.requests = []
+
+        def generate(self, request):  # type: ignore[no-untyped-def]
+            self.calls += 1
+            self.requests.append(request)
+            if self.calls == 1:
+                raise RuntimeError("first research failed")
+            return OpenWebUiResponse("최종 브리핑", request.model)
+
+    job = Job(
+        "briefing",
+        "Briefing",
+        True,
+        Schedule("0 7 * * *", "UTC"),
+        OpenWebUiOptions("model"),
+        PromptDefinition(text="{{ research.bad }}\n{{ research.good }}"),
+        (ChannelDestination("fake", "one"),),
+        research_tasks=(
+            ResearchTask("bad", "실패 리서치", "bad", model="model"),
+            ResearchTask("good", "성공 리서치", "good", model="model"),
+        ),
+        research_use_parent_model=False,
+    )
+    channel, client = FakeMessageChannel(), SequencedClient()
+
+    result = RunJob(
+        InMemoryJobRepository([job]),
+        FakePromptLoader(),
+        JinjaTemplateRenderer(),
+        client,  # type: ignore[arg-type]
+        InMemoryExecutionRepository(),
+        ChannelResolver([channel]),
+        FakeClock(datetime(2026, 1, 1, tzinfo=UTC)),
+        tavily=cast(TavilySearch, FakeTavily()),
+    ).execute(RunJobCommand("briefing"))
+
+    assert result.status == ExecutionStatus.SUCCESS
+    assert len(client.requests) == 3
+    assert "리서치 실패" in client.requests[-1].prompt
+    assert "최종 브리핑" == channel.sent_messages[0].body
 
 
 def test_run_job_skips_disabled_research_task() -> None:
