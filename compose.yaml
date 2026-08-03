@@ -1,6 +1,9 @@
 services:
   prompt-dispatcher:
     image: ${IMAGE:-prompt-dispatcher:local}
+    build:
+      context: .
+      dockerfile: Dockerfile
     container_name: prompt-dispatcher
     restart: unless-stopped
     user: "${PUID:-1000}:${PGID:-1000}"
