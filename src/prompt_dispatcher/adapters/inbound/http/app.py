@@ -1,4 +1,5 @@
 import logging
+from datetime import timedelta
 from pathlib import Path
 from typing import Any, Literal
 
@@ -14,7 +15,8 @@ from prompt_dispatcher.application.dto.commands import RunJobCommand
 from prompt_dispatcher.application.use_cases.send_prompt import SendPromptCommand
 from prompt_dispatcher.bootstrap.container import ApplicationContainer
 from prompt_dispatcher.bootstrap.settings import Settings
-from prompt_dispatcher.domain.delivery import OutboundMessage
+from prompt_dispatcher.domain.delivery import DeliveryResult, OutboundMessage
+from prompt_dispatcher.domain.enums import DeliveryStatus
 from prompt_dispatcher.domain.job import ChannelDestination
 
 logger = logging.getLogger(__name__)
@@ -45,6 +47,10 @@ class InstantPromptPayload(BaseModel):
     web_search_exclude_domains: list[str] = Field(default_factory=list)
     channels: list[dict[str, str]] = Field(default_factory=list)
     dry_run: bool = False
+
+
+class RedispatchPayload(BaseModel):
+    channels: list[dict[str, str]] = Field(default_factory=list)
 
 
 def create_app(container: ApplicationContainer) -> FastAPI:
@@ -363,6 +369,108 @@ def create_app(container: ApplicationContainer) -> FastAPI:
             receipt.external_id,
         )
         return {"status": "sent", "message": "테스트 메시지를 전송했습니다."}
+
+    @app.get("/api/executions")
+    def executions(query: str = "", days: int = 30, limit: int = 100) -> list[dict[str, object]]:
+        since = container.clock.now("UTC") - timedelta(days=max(1, min(days, 3650)))
+        records = container.executions.find_history(since, query.strip(), max(1, min(limit, 200)))
+        return [
+            {
+                "id": record.id,
+                "job_id": record.job_id,
+                "scheduled_time": record.scheduled_time.isoformat(),
+                "started_at": record.started_at.isoformat(),
+                "finished_at": record.finished_at.isoformat() if record.finished_at else None,
+                "status": record.status.value,
+                "response_length": record.response_length,
+                "error_type": record.error_type,
+                "error_message": record.error_message,
+                "preview": (record.response_content or "")[:500],
+            }
+            for record in records
+        ]
+
+    @app.get("/api/executions/{execution_id}")
+    def execution_detail(execution_id: str) -> dict[str, object]:
+        record = container.executions.get_history(execution_id)
+        if record is None:
+            raise HTTPException(404, "Execution not found")
+        return {
+            "id": record.id,
+            "job_id": record.job_id,
+            "scheduled_time": record.scheduled_time.isoformat(),
+            "started_at": record.started_at.isoformat(),
+            "finished_at": record.finished_at.isoformat() if record.finished_at else None,
+            "status": record.status.value,
+            "response_length": record.response_length,
+            "error_type": record.error_type,
+            "error_message": record.error_message,
+            "content": record.response_content or "",
+        }
+
+    @app.post("/api/executions/{execution_id}/dispatch")
+    def redispatch_execution(execution_id: str, payload: RedispatchPayload) -> dict[str, object]:
+        record = container.executions.get_history(execution_id)
+        if record is None:
+            raise HTTPException(404, "Execution not found")
+        if not record.response_content:
+            raise HTTPException(422, "This execution has no stored response to dispatch")
+        destinations = tuple(
+            ChannelDestination(item.get("type", ""), item.get("target", ""))
+            for item in payload.channels
+            if item.get("type") and item.get("target")
+        )
+        if not destinations:
+            raise HTTPException(422, "At least one channel is required")
+        successes: list[str] = []
+        failures: list[str] = []
+        for destination in destinations:
+            started = container.clock.now("UTC")
+            label = f"{destination.channel_type}:{destination.target}"
+            try:
+                receipt = container.channels.resolve(destination.channel_type).send(
+                    destination.target, OutboundMessage(record.job_id, record.response_content)
+                )
+                container.executions.add_delivery(
+                    execution_id,
+                    DeliveryResult(
+                        destination.channel_type,
+                        destination.target,
+                        DeliveryStatus.SUCCESS,
+                        started,
+                        container.clock.now("UTC"),
+                        receipt.external_id,
+                    ),
+                )
+                successes.append(label)
+            except Exception as error:
+                container.executions.add_delivery(
+                    execution_id,
+                    DeliveryResult(
+                        destination.channel_type,
+                        destination.target,
+                        DeliveryStatus.FAILED,
+                        started,
+                        container.clock.now("UTC"),
+                        error_type=type(error).__name__,
+                        error_message=str(error),
+                    ),
+                )
+                failures.append(label)
+                logger.warning(
+                    "event=history_redispatch_failed execution_id=%s channel_type=%s target=%s error_type=%s",
+                    execution_id,
+                    destination.channel_type,
+                    destination.target,
+                    type(error).__name__,
+                )
+        logger.info(
+            "event=history_redispatch_completed execution_id=%s successful=%s failed=%s",
+            execution_id,
+            len(successes),
+            len(failures),
+        )
+        return {"successful_targets": successes, "failed_targets": failures}
 
     @app.get("/api/logs")
     def logs(limit: int = 200) -> dict[str, object]:

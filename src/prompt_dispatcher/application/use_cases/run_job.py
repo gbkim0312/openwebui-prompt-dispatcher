@@ -1,4 +1,5 @@
 import logging
+from datetime import timedelta
 from uuid import uuid4
 
 from prompt_dispatcher.adapters.outbound.search.tavily import TavilySearch
@@ -40,6 +41,7 @@ class RunJob:
         clock: ClockPort,
         model_catalog: ModelCatalogPort | None = None,
         tavily: TavilySearch | None = None,
+        retention_days: int = 30,
     ) -> None:
         self._jobs, self._prompts, self._renderer = job_repository, prompt_loader, template_renderer
         self._openwebui, self._executions, self._channels, self._clock = (
@@ -50,6 +52,7 @@ class RunJob:
         )
         self._model_catalog = model_catalog
         self._tavily = tavily
+        self._retention_days = retention_days
 
     def execute(self, command: RunJobCommand) -> RunJobResult:
         if self._model_catalog is not None:
@@ -64,6 +67,7 @@ class RunJob:
             logger.info("event=job_skipped job_id=%s reason=disabled", job.id)
             return RunJobResult(None, ExecutionStatus.SKIPPED, "Job is disabled")
         now = self._clock.now(job.schedule.timezone)
+        self._executions.purge_before(now - timedelta(days=self._retention_days))
         scheduled = command.scheduled_time or now
         execution = Execution(str(uuid4()), job.id, scheduled, now)
         logger.info("event=job_started job_id=%s execution_id=%s", job.id, execution.id)
@@ -187,7 +191,10 @@ class RunJob:
             self._executions.complete(
                 execution.id,
                 ExecutionResult(
-                    ExecutionStatus.SUCCESS, self._clock.now(job.schedule.timezone), len(content)
+                    ExecutionStatus.SUCCESS,
+                    self._clock.now(job.schedule.timezone),
+                    len(content),
+                    response_content=content,
                 ),
             )
             return RunJobResult(execution.id, ExecutionStatus.SUCCESS, content)
@@ -239,7 +246,12 @@ class RunJob:
         status = determine_execution_status(successes, failures)
         self._executions.complete(
             execution.id,
-            ExecutionResult(status, self._clock.now(job.schedule.timezone), len(content)),
+            ExecutionResult(
+                status,
+                self._clock.now(job.schedule.timezone),
+                len(content),
+                response_content=content,
+            ),
         )
         logger.info(
             "event=job_completed job_id=%s execution_id=%s status=%s", job.id, execution.id, status

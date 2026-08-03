@@ -2,7 +2,7 @@ from datetime import datetime
 
 from prompt_dispatcher.domain.delivery import DeliveryResult
 from prompt_dispatcher.domain.enums import ExecutionStatus
-from prompt_dispatcher.domain.execution import Execution, ExecutionResult
+from prompt_dispatcher.domain.execution import Execution, ExecutionHistory, ExecutionResult
 from prompt_dispatcher.domain.job import Job
 
 
@@ -55,6 +55,42 @@ class InMemoryExecutionRepository:
                 self._results[execution.id] = ExecutionResult(ExecutionStatus.ABANDONED, older_than)
                 count += 1
         return count
+
+    def purge_before(self, older_than: datetime) -> int:
+        obsolete = [item.id for item in self.executions if item.started_at < older_than]
+        self.executions = [item for item in self.executions if item.id not in obsolete]
+        for execution_id in obsolete:
+            self._results.pop(execution_id, None)
+            self.deliveries.pop(execution_id, None)
+        return len(obsolete)
+
+    def find_history(
+        self, since: datetime, query: str = "", limit: int = 100
+    ) -> tuple[ExecutionHistory, ...]:
+        records = [
+            self.get_history(item.id)
+            for item in self.executions
+            if item.started_at >= since and query in (item.job_id + (self._results.get(item.id, ExecutionResult(ExecutionStatus.RUNNING, item.started_at)).response_content or ""))
+        ]
+        return tuple(record for record in records if record is not None)[:limit]
+
+    def get_history(self, execution_id: str) -> ExecutionHistory | None:
+        execution = next((item for item in self.executions if item.id == execution_id), None)
+        if execution is None:
+            return None
+        result = self._results.get(execution_id)
+        return ExecutionHistory(
+            execution.id,
+            execution.job_id,
+            execution.scheduled_time,
+            execution.started_at,
+            result.finished_at if result else None,
+            result.status if result else ExecutionStatus.RUNNING,
+            result.response_length if result else None,
+            result.error_type if result else None,
+            result.error_message if result else None,
+            result.response_content if result else None,
+        )
 
     def result_for(self, execution_id: str) -> ExecutionResult | None:
         return self._results.get(execution_id)

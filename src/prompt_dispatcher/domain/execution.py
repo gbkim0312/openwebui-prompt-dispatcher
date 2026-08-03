@@ -21,6 +21,21 @@ class ExecutionResult:
     response_length: int = 0
     error_type: str | None = None
     error_message: str | None = None
+    response_content: str | None = None
+
+
+@dataclass(frozen=True)
+class ExecutionHistory:
+    id: str
+    job_id: str
+    scheduled_time: datetime
+    started_at: datetime
+    finished_at: datetime | None
+    status: ExecutionStatus
+    response_length: int | None
+    error_type: str | None
+    error_message: str | None
+    response_content: str | None
 
 
 def determine_execution_status(successes: int, failures: int) -> ExecutionStatus:

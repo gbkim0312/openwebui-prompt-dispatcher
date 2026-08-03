@@ -73,6 +73,7 @@ class WebManagementStore:
             "SMTP_FROM",
             "SMTP_USE_TLS",
             "SMTP_PERSONAL_TO",
+            "EXECUTION_RETENTION_DAYS",
         }
         stored: dict[str, str] = {}
         if self._secrets.exists():
@@ -100,6 +101,7 @@ class WebManagementStore:
             "SMTP_FROM",
             "SMTP_USE_TLS",
             "SMTP_PERSONAL_TO",
+            "EXECUTION_RETENTION_DAYS",
         }
         old = {}
         if self._secrets.exists():

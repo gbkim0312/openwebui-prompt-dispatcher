@@ -52,6 +52,7 @@ class Settings:
     nextcloud_url: str
     nextcloud_verify_tls: bool
     tavily_api_key: str
+    execution_retention_days: int
     smtp_host: str
     smtp_port: int
     smtp_username: str
@@ -84,6 +85,7 @@ class Settings:
             value("NEXTCLOUD_URL"),
             _truth(os.getenv("NEXTCLOUD_VERIFY_TLS", "true")),
             value("TAVILY_API_KEY"),
+            max(1, int(value("EXECUTION_RETENTION_DAYS", "30"))),
             value("SMTP_HOST", "smtp.gmail.com"),
             int(value("SMTP_PORT", "587")),
             value("SMTP_USERNAME"),

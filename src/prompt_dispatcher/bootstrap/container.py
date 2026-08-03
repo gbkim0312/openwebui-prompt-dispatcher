@@ -50,6 +50,9 @@ class ApplicationContainer:
     model_catalog: ModelCatalogPort
     capability_catalog: HttpOpenWebUiAdapter
     send_prompt: SendPrompt
+    executions: SqliteExecutionRepository
+    channels: ChannelResolver
+    clock: SystemClock
 
 
 def build_container(settings: Settings | None = None) -> ApplicationContainer:
@@ -114,18 +117,21 @@ def build_container(settings: Settings | None = None) -> ApplicationContainer:
     )
     model_catalog = CachedModelCatalog(openwebui, settings.database_path.parent / "models.json")
     tavily = TavilySearch(settings.tavily_api_key)
+    executions = SqliteExecutionRepository(settings.database_path)
+    resolver = ChannelResolver(channels)
     run = RunJob(
         jobs,
         FilePromptLoader(settings.prompts_directory),
         JinjaTemplateRenderer(),
         openwebui,
-        SqliteExecutionRepository(settings.database_path),
-        ChannelResolver(channels),
+        executions,
+        resolver,
         clock,
         model_catalog,
         tavily,
+        settings.execution_retention_days,
     )
-    send_prompt = SendPrompt(openwebui, ChannelResolver(channels), clock, tavily)
+    send_prompt = SendPrompt(openwebui, resolver, clock, tavily)
     return ApplicationContainer(
         settings,
         jobs,
@@ -136,4 +142,7 @@ def build_container(settings: Settings | None = None) -> ApplicationContainer:
         model_catalog,
         openwebui,
         send_prompt,
+        executions,
+        resolver,
+        clock,
     )

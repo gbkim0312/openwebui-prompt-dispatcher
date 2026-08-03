@@ -139,6 +139,7 @@ UI에서 저장한 연결 키는 `data/management.env`에 저장됩니다. **키
 | `OPENWEBUI_TIMEOUT_SECONDS` | `600` | 기본 Open WebUI 요청 제한 시간입니다. 개별 Job은 `openwebui.timeout_seconds`로 재정의합니다. |
 | `OPENWEBUI_VERIFY_TLS` | `true` | HTTPS 인증서 검증 여부입니다. 운영 환경에서는 `true`를 유지하세요. |
 | `TAVILY_API_KEY` | 빈 값 | `Web Search with Tavily` 선택 시 디스패처가 직접 호출할 Tavily API 키입니다. `tvly-`로 시작하는 비밀값이며 Git에 저장하지 마세요. |
+| `EXECUTION_RETENTION_DAYS` | `30` | 실행 이력과 최종 응답을 DB에 보관할 일수입니다. 기간이 지난 기록과 전송 이력은 다음 작업 실행 시 자동 삭제됩니다. |
 | `TELEGRAM_PERSONAL_BOT_TOKEN` | 빈 값 | `target: personal` Telegram 채널의 Bot Token입니다. target이 `team-alert`라면 `TELEGRAM_TEAM_ALERT_BOT_TOKEN` 형식을 사용합니다. |
 | `TELEGRAM_PERSONAL_CHAT_ID` | 빈 값 | 해당 Telegram target의 Chat ID입니다. target 별칭 규칙은 Bot Token과 같습니다. |
 | `NEXTCLOUD_URL` | 빈 값 | Nextcloud 서버 기본 URL입니다. |
@@ -160,6 +161,10 @@ UI에서 저장한 연결 키는 `data/management.env`에 저장됩니다. **키
 Gmail 전송에는 API 키가 아니라 SMTP용 **앱 비밀번호**를 사용합니다. Google 계정에서 2단계 인증을 켠 뒤 앱 비밀번호를 발급하고, 설정 탭의 `SMTP 사용자 이메일`에 Gmail 주소, `SMTP 앱 비밀번호`에 발급받은 앱 비밀번호를 입력하세요. 서버는 `smtp.gmail.com`, 포트는 `587`, STARTTLS는 `true`로 둡니다. `수신 이메일`에 실제 받을 주소를 입력하고 저장·재시작하면 전송 채널 목록에 `email: personal`이 나타납니다.
 
 예약 또는 즉시 전송 화면에서 `email: personal`을 체크하면 동일한 결과를 이메일로도 전송합니다. 수신자를 여러 명 지정할 때는 `person1@example.com, person2@example.com` 형식으로 입력하세요.
+
+## 실행 이력 및 재전송
+
+예약 작업이 실제 실행되면 최종 응답 전문, 실행 상태, 오류 및 채널 전송 결과가 SQLite DB에 저장됩니다. 좌측 **실행 이력**에서 기본 최근 30일 기록을 작업 ID 또는 응답 내용으로 검색하고, 하나를 선택해 내용을 확인할 수 있습니다. 원하는 채널을 체크해 모델을 다시 호출하지 않고 저장된 응답을 수동 재전송할 수 있습니다. 보존 기간은 연결 설정의 `실행 이력 보관 기간` 또는 `EXECUTION_RETENTION_DAYS`로 변경합니다.
 
 `personal` 이외의 채널 target도 지원합니다. target을 대문자화하고 하이픈을 밑줄로 바꿔 변수명에 넣습니다.
 
