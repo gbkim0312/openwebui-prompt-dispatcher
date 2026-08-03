@@ -3,7 +3,7 @@ import smtplib
 import ssl
 from collections.abc import Callable
 from email.message import EmailMessage
-from email.utils import make_msgid
+from email.utils import getaddresses, make_msgid
 from html import escape
 
 from prompt_dispatcher.domain.delivery import DeliveryReceipt, OutboundMessage
@@ -133,10 +133,7 @@ class SmtpEmailChannel:
         )
 
     def send(self, target: str, message: OutboundMessage) -> DeliveryReceipt:
-        try:
-            recipients = self._targets[target]
-        except KeyError as exc:
-            raise ChannelDeliveryError(f"Email target is not configured: {target}") from exc
+        recipients = self._recipients_for_target(target)
         if not all((self._host, self._username, self._password, self._from, recipients)):
             raise ChannelDeliveryError("SMTP email channel is not fully configured")
         email = EmailMessage()
@@ -156,3 +153,14 @@ class SmtpEmailChannel:
             detail = str(exc).replace(self._password, "[redacted]").replace("\n", " ")
             raise ChannelDeliveryError(f"SMTP email delivery failed: {detail}") from exc
         return DeliveryReceipt(str(email["Message-ID"]))
+
+    def _recipients_for_target(self, target: str) -> tuple[str, ...]:
+        """Resolve a named destination or a UI-provided comma-separated address list."""
+        if target in self._targets:
+            return self._targets[target]
+        if target == "personal":
+            raise ChannelDeliveryError("Email target is not configured: personal")
+        recipients = tuple(address for _, address in getaddresses([target]) if "@" in address)
+        if not recipients:
+            raise ChannelDeliveryError("Email recipient address is required")
+        return recipients

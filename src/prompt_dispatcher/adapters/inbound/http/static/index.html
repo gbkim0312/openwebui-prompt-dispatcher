@@ -257,4 +257,63 @@ new MutationObserver(()=>{mountSchedulePicker();decorateResearchDayChoices()}).o
 mountSchedulePicker();decorateResearchDayChoices();
 </script><style>
 .schedule-picker-row{display:flex;align-items:end;gap:26px;flex-wrap:wrap;padding:12px 14px;border:1px solid #dce3ea;border-radius:9px;background:#f9fbfd}.schedule-picker-row .row select{width:92px}.weekday-checks{display:flex;gap:10px;flex-wrap:wrap;margin-top:6px}.weekday-checks label{display:flex;align-items:center;gap:3px;margin:0;font-weight:500}.weekday-checks input{width:auto}.schedule-warning{margin:7px 0 0;color:#926000}.research-days-control{padding-top:2px}
+</style><script>
+function emailRecipientControl(checkbox,initialTarget='personal'){
+  if(checkbox.dataset.emailRecipientReady)return;
+  checkbox.dataset.emailRecipientReady='true';
+  const wrapper=document.createElement('div');wrapper.className='email-recipient-control';
+  const initial=initialTarget==='personal'?'':initialTarget;
+  wrapper.innerHTML=`<label>수신자 이메일 <span class="muted">(쉼표로 여러 명 입력)</span></label><input type="text" class="email-recipient" placeholder="비우면 설정의 기본 수신자 사용" value="${escapeHtml(initial)}">`;
+  checkbox.closest('label')?.insertAdjacentElement('afterend',wrapper);
+  const input=wrapper.querySelector('input');
+  const sync=()=>{wrapper.hidden=!checkbox.checked;checkbox.dataset.target=input.value.trim()||'personal'};
+  checkbox.addEventListener('change',sync);input.addEventListener('input',sync);sync();
+}
+function addEmailRecipientControls(container,selector){
+  for(const checkbox of container.querySelectorAll(selector)){
+    if(checkbox.dataset.type==='email')emailRecipientControl(checkbox,checkbox.dataset.target||'personal');
+  }
+}
+window.loadInstantChannels=async function(){
+  const container=$('#instant-channels');
+  try{
+    const channels=await api('/api/channels');container.replaceChildren();
+    if(!channels.length){container.textContent='등록된 채널 목적지가 없습니다. 연결 설정을 먼저 확인하세요.';return}
+    const seenEmail=new Set();
+    for(const channel of channels){
+      if(channel.type==='email'&&seenEmail.size)continue;
+      if(channel.type==='email')seenEmail.add(channel.type);
+      const label=document.createElement('label'),input=document.createElement('input'),text=document.createElement('span');
+      input.type='checkbox';input.className='instant-channel';input.dataset.type=channel.type;input.dataset.target=channel.target;input.style.width='auto';
+      text.textContent=channel.type==='email'?' 이메일':` ${channel.type}: ${channel.target}`;
+      label.style.margin='0';label.style.display='flex';label.style.alignItems='center';label.append(input,text);container.append(label);
+    }
+    addEmailRecipientControls(container,'.instant-channel');
+  }catch(error){container.textContent='채널 목록을 불러오지 못했습니다.'}
+};
+window.loadJobChannels=async function(selected){
+  const textarea=$('#channels');if(!textarea)return;textarea.style.display='none';
+  const label=textarea.previousElementSibling;if(label)label.textContent='전송 채널';
+  let picker=$('#job-channels');if(!picker){picker=document.createElement('div');picker.id='job-channels';picker.className='row';textarea.before(picker)}
+  const selectedKeys=new Set(selected.filter(channel=>channel.type!=='email').map(channel=>`${channel.type}:${channel.target}`));
+  const selectedEmail=selected.find(channel=>channel.type==='email')?.target||'personal';
+  try{
+    const channels=await api('/api/channels');picker.replaceChildren();let emailAdded=false;
+    for(const channel of channels){
+      if(channel.type==='email'){
+        if(emailAdded)continue;emailAdded=true;
+      }
+      const key=`${channel.type}:${channel.target}`,itemLabel=document.createElement('label'),input=document.createElement('input'),text=document.createElement('span');
+      input.type='checkbox';input.className='job-channel';input.dataset.type=channel.type;input.dataset.target=channel.type==='email'?selectedEmail:channel.target;
+      input.checked=channel.type==='email'?selected.some(item=>item.type==='email'):selectedKeys.has(key);input.style.width='auto';
+      text.textContent=channel.type==='email'?' 이메일':` ${channel.type}: ${channel.target}`;
+      itemLabel.style.margin='0';itemLabel.style.display='flex';itemLabel.style.alignItems='center';itemLabel.append(input,text);picker.append(itemLabel);
+    }
+    addEmailRecipientControls(picker,'.job-channel');
+    const sync=()=>{textarea.value=[...picker.querySelectorAll('.job-channel:checked')].map(input=>`${input.dataset.type}:${input.dataset.target}`).join('\n')};
+    picker.addEventListener('change',sync);sync();
+  }catch(error){textarea.style.display='block';if(label)label.textContent='채널 (한 줄에 type:target, 예: telegram:personal)'}
+};
+</script><style>
+.email-recipient-control{flex:1 0 100%;max-width:520px;margin:0 0 4px 22px;padding:10px 12px;border-left:3px solid #1565c0;background:#f4f8fc}.email-recipient-control label{margin:0 0 4px;font-size:12px}.email-recipient-control input{width:100%}
 </style></body></html>

@@ -74,6 +74,24 @@ def test_smtp_email_rejects_unknown_target() -> None:
         channel.send("personal", OutboundMessage("제목", "본문"))
 
 
+def test_smtp_email_accepts_a_recipient_list_as_target() -> None:
+    client = FakeSmtp()
+    channel = SmtpEmailChannel(
+        "smtp.example.com",
+        587,
+        "sender@example.com",
+        "secret",
+        "sender@example.com",
+        {},
+        smtp_factory=lambda *_args, **_kwargs: client,  # type: ignore[arg-type]
+    )
+
+    channel.send("one@example.com, Two <two@example.com>", OutboundMessage("제목", "본문"))
+
+    assert client.sent is not None
+    assert client.sent["To"] == "one@example.com, two@example.com"
+
+
 def test_smtp_email_error_includes_safe_server_reason() -> None:
     class RejectingSmtp(FakeSmtp):
         def login(self, username: str, password: str) -> None:
