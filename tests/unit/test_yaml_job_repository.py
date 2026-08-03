@@ -26,3 +26,34 @@ delivery:
     assert repository.find_all() == []
     assert repository.errors
     assert "invalid.job.yaml: invalid cron expression" in repository.errors[0]
+
+
+def test_research_task_id_allows_hyphens(tmp_path) -> None:
+    (tmp_path / "news.job.yaml").write_text(
+        """
+version: 1
+id: news
+schedule:
+  cron: "0 7 * * *"
+  timezone: Asia/Seoul
+openwebui:
+  model: test-model
+prompt:
+  text: hello
+delivery:
+  channels:
+    - type: fake
+      target: one
+research:
+  tasks:
+    - id: mobility-ai
+      name: Mobility AI
+      query: latest mobility news
+""".strip(),
+        encoding="utf-8",
+    )
+
+    repository = YamlJobRepository(tmp_path)
+
+    assert repository.errors == []
+    assert repository.find_all()[0].research_tasks[0].id == "mobility-ai"

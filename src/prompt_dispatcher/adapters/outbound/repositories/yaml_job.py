@@ -119,9 +119,9 @@ class YamlJobRepository:
         if not isinstance(raw, dict):
             raise JobValidationError("research.tasks must contain objects")
         task_id = str(raw.get("id", ""))
-        if not task_id or not task_id.replace("_", "").isalnum():
+        if not task_id or not task_id.replace("_", "").replace("-", "").isalnum():
             raise JobValidationError(
-                "research task id may use letters, numbers, and underscores only"
+                "research task id may use letters, numbers, hyphens, and underscores only"
             )
         query = str(raw.get("query", ""))
         if not query:

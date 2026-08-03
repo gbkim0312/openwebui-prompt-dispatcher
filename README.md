@@ -115,7 +115,7 @@ python3 -m venv .venv
 ]
 ```
 
-최종 프롬프트에서는 개별 결과를 `{{ research.politics }}`처럼, 모든 결과를 합친 문서는 `{{ research_context }}`처럼 참조합니다. `query`와 `summary_prompt`에는 기존 Jinja 변수도 사용할 수 있습니다.
+최종 프롬프트에서는 개별 결과를 `{{ research.politics }}`처럼, 모든 결과를 합친 문서는 `{{ research_context }}`처럼 참조합니다. 리서치 ID에 하이픈이 있다면 `{{ research['mobility-ai'] }}` 표기를 사용하세요. `query`와 `summary_prompt`에는 기존 Jinja 변수도 사용할 수 있습니다.
 
 UI에서 저장한 연결 키는 `data/management.env`에 저장됩니다. **키 저장 후 서비스를 재시작해야** 새 연결 설정이 적용됩니다. 이 파일은 Git에 포함되지 않습니다.
 
