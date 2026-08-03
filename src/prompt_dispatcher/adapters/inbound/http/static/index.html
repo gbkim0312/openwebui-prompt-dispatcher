@@ -334,7 +334,8 @@ function refreshResearchCardSummaries(){
     const header=card.querySelector(':scope > .row'),model=card.querySelector('.research-model'),summary=header?.querySelector('.research-model-summary');
     if(!summary)return;
     const days=[...card.querySelectorAll('.research-day:checked')].map(input=>labels[input.value]||input.value);
-    summary.textContent=`모델: ${model?.value||'미선택'} · 요일: ${days.join('·')||'없음'}`;
+    const value=`모델: ${model?.value||'미선택'} · 요일: ${days.join('·')||'없음'}`;
+    if(summary.textContent!==value)summary.textContent=value;
   }
 }
 document.addEventListener('change',event=>{if(event.target.matches?.('.research-day,.research-model,#schedule-picker input'))queueMicrotask(refreshResearchCardSummaries)});
