@@ -135,6 +135,7 @@ class RunJob:
                         task.max_results,
                         task.include_domains,
                         task.exclude_domains,
+                        task.include_raw_content,
                     )
                     response = self._openwebui.generate(OpenWebUiRequest(task_model, research_prompt))
                     if not response.content.strip():

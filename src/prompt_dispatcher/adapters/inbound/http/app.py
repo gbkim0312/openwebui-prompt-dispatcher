@@ -212,6 +212,7 @@ def create_app(container: ApplicationContainer) -> FastAPI:
                             "model": task.model,
                             "enabled": task.enabled,
                             "days_of_week": list(task.days_of_week),
+                            "include_raw_content": task.include_raw_content,
                         }
                         for task in job.research_tasks
                     ],

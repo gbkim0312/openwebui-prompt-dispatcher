@@ -40,6 +40,7 @@ def test_tavily_search_uses_expected_api_request() -> None:
             "max_results": 8,
             "include_domains": [],
             "exclude_domains": [],
+            "include_raw_content": False,
         },
     }
 
@@ -77,3 +78,13 @@ def test_tavily_search_passes_selected_time_range() -> None:
     client = httpx.Client(transport=httpx.MockTransport(handler))
 
     assert TavilySearch("tvly-test", client).search("AI 뉴스", "month") == ()
+
+
+def test_tavily_search_can_request_raw_content() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        assert json.loads(request.content)["include_raw_content"] is True
+        return httpx.Response(200, json={"results": []})
+
+    client = httpx.Client(transport=httpx.MockTransport(handler))
+
+    assert TavilySearch("tvly-test", client).search("AI 뉴스", include_raw_content=True) == ()

@@ -342,6 +342,20 @@ document.addEventListener('change',event=>{if(event.target.matches?.('.research-
 document.addEventListener('input',event=>{if(event.target.matches?.('.research-name'))queueMicrotask(refreshResearchCardSummaries)});
 new MutationObserver(refreshResearchCardSummaries).observe(document.body,{childList:true,subtree:true});
 refreshResearchCardSummaries();
+function decorateResearchRawContent(){
+  document.querySelectorAll('#research-task-list .settings-group').forEach((card,index)=>{
+    if(card.querySelector('.research-raw-content'))return;
+    const cols=card.querySelector('.cols');if(!cols)return;
+    const control=document.createElement('div');control.className='wide research-raw-content';
+    const checked=researchTasksUi[index]?.include_raw_content===true;
+    control.innerHTML=`<label class="research-raw-content-label"><input type="checkbox" ${checked?'checked':''}> Tavily 원문 콘텐츠 포함 <span class="muted">(더 정확한 요약에 유용하지만 응답량·처리 시간이 증가할 수 있습니다)</span></label>`;
+    cols.append(control);
+  });
+}
+const collectResearchTasksBeforeRawContent=collectResearchTasks;
+collectResearchTasks=function(){const cards=[...document.querySelectorAll('#research-task-list .settings-group')];return collectResearchTasksBeforeRawContent().map((task,index)=>({...task,include_raw_content:cards[index]?.querySelector('.research-raw-content input')?.checked===true}))};
+new MutationObserver(decorateResearchRawContent).observe(document.body,{childList:true,subtree:true});
+decorateResearchRawContent();
 window.unlockCurrentJob=async function(){
   const result=$('#job-test-result');if(!current||!result)return;
   result.textContent='실행 잠금을 해제하는 중입니다…';

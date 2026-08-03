@@ -14,6 +14,7 @@ def enrich_with_tavily(
     max_results: int = 8,
     include_domains: tuple[str, ...] = (),
     exclude_domains: tuple[str, ...] = (),
+    include_raw_content: bool = False,
 ) -> tuple[str, tuple[str, ...]]:
     if TAVILY_TOOL_ID not in tool_ids:
         return prompt, tool_ids
@@ -27,6 +28,7 @@ def enrich_with_tavily(
         max_results,
         include_domains,
         exclude_domains,
+        include_raw_content,
     )
     sources = "\n\n".join(
         f"[{index}] {title}\nURL: {url}\n내용: {content}"

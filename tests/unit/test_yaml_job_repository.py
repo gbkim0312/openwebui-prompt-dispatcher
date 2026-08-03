@@ -80,6 +80,7 @@ research:
     - id: economy
       query: latest economy news
       days_of_week: [mon, fri]
+      include_raw_content: true
 """,
         encoding="utf-8",
     )
@@ -88,3 +89,4 @@ research:
 
     assert repository.errors == []
     assert repository.find_all()[0].research_tasks[0].days_of_week == ("mon", "fri")
+    assert repository.find_all()[0].research_tasks[0].include_raw_content is True

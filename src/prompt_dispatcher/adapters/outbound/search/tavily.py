@@ -15,6 +15,7 @@ class TavilySearch:
         max_results: int = 8,
         include_domains: tuple[str, ...] = (),
         exclude_domains: tuple[str, ...] = (),
+        include_raw_content: bool = False,
     ) -> tuple[tuple[str, str, str], ...]:
         if not self._api_key:
             raise ValueError("TAVILY_API_KEY is required for direct Tavily search")
@@ -37,6 +38,7 @@ class TavilySearch:
                 "max_results": max_results,
                 "include_domains": list(include_domains),
                 "exclude_domains": list(exclude_domains),
+                "include_raw_content": include_raw_content,
             },
             timeout=60,
         )

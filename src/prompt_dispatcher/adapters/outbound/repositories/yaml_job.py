@@ -160,6 +160,7 @@ class YamlJobRepository:
             str(raw["model"]) if raw.get("model") else None,
             bool(raw.get("enabled", True)),
             days_of_week,
+            bool(raw.get("include_raw_content", False)),
         )
 
     def find_all(self) -> list[Job]:

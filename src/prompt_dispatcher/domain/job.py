@@ -64,6 +64,7 @@ class ResearchTask:
     # Empty means every day on which the parent job runs. Values are cron
     # weekday names: mon through sun.
     days_of_week: tuple[str, ...] = ()
+    include_raw_content: bool = False
 
 
 @dataclass(frozen=True)
