@@ -143,6 +143,10 @@ decorateResearchActivation();addResearchBulkControls();
 .research-bulk-controls{margin-left:auto}
 .research-parent-model-control{display:flex;align-items:center;gap:7px;width:max-content;margin-top:12px;font-weight:600;color:#1c2733}
 .research-parent-model-hint{margin-top:4px!important}
+.connection-section-heading{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:14px}
+.connection-section-heading h3{margin:0}
+.connection-test-result{margin:12px 0 0!important}
+.connection-test-failed{color:#b21f2d}
 </style><script>
 /* Connection settings renderer kept separate so newly added transports stay grouped clearly. */
 sensitiveSettings.add('SMTP_PASSWORD');
@@ -151,14 +155,30 @@ window.showSettings=async function(){
   const data=await api('/api/settings');
   const defaults={SMTP_HOST:'smtp.gmail.com',SMTP_PORT:'587',SMTP_USE_TLS:'true'};
   const groups=[
-    ['Open WebUI',[['OPENWEBUI_BASE_URL','Open WebUI URL'],['OPENWEBUI_API_KEY','Open WebUI API Key']]],
-    ['Telegram',[['TELEGRAM_PERSONAL_BOT_TOKEN','Telegram Bot Token'],['TELEGRAM_PERSONAL_CHAT_ID','Telegram Chat ID']]],
-    ['Nextcloud Talk',[['NEXTCLOUD_URL','Nextcloud URL'],['NEXTCLOUD_TALK_PERSONAL_USERNAME','Talk username'],['NEXTCLOUD_TALK_PERSONAL_APP_PASSWORD','Talk app password'],['NEXTCLOUD_TALK_PERSONAL_ROOM_TOKEN','Talk room token']]],
-    ['SMTP 이메일',[['SMTP_HOST','SMTP 서버'],['SMTP_PORT','SMTP 포트'],['SMTP_USERNAME','SMTP 사용자 이메일'],['SMTP_PASSWORD','SMTP 앱 비밀번호'],['SMTP_FROM','발신자 이메일 (비우면 사용자 이메일)'],['SMTP_PERSONAL_TO','수신 이메일 (쉼표로 여러 명 가능)'],['SMTP_USE_TLS','STARTTLS 사용 (true / false)']]]
+    ['Open WebUI',[['OPENWEBUI_BASE_URL','Open WebUI URL'],['OPENWEBUI_API_KEY','Open WebUI API Key']],null],
+    ['Telegram',[['TELEGRAM_PERSONAL_BOT_TOKEN','Telegram Bot Token'],['TELEGRAM_PERSONAL_CHAT_ID','Telegram Chat ID']],'telegram'],
+    ['Nextcloud Talk',[['NEXTCLOUD_URL','Nextcloud URL'],['NEXTCLOUD_TALK_PERSONAL_USERNAME','Talk username'],['NEXTCLOUD_TALK_PERSONAL_APP_PASSWORD','Talk app password'],['NEXTCLOUD_TALK_PERSONAL_ROOM_TOKEN','Talk room token']],'nextcloud_talk'],
+    ['SMTP 이메일',[['SMTP_HOST','SMTP 서버'],['SMTP_PORT','SMTP 포트'],['SMTP_USERNAME','SMTP 사용자 이메일'],['SMTP_PASSWORD','SMTP 앱 비밀번호'],['SMTP_FROM','발신자 이메일 (비우면 사용자 이메일)'],['SMTP_PERSONAL_TO','수신 이메일 (쉼표로 여러 명 가능)'],['SMTP_USE_TLS','STARTTLS 사용 (true / false)']],'email']
   ];
   const fields=groups.flatMap(([,items])=>items);
   const field=([key,label])=>`<div><label>${label} ${data.configured.includes(key)?'<span class="muted">(설정됨)</span>':''}</label><div class="${sensitiveSettings.has(key)?'input-with-toggle':''}"><input class="setting-field" id="${key}" type="${sensitiveSettings.has(key)?'password':'text'}" autocomplete="off">${sensitiveSettings.has(key)?`<button class="secondary" type="button" onclick="toggleSetting('${key}',this)" aria-label="값 표시 또는 숨김">👁</button>`:''}</div></div>`;
-  $('#editor').innerHTML=`<h2>연결 설정</h2><div class="warning">민감 값은 눈 버튼을 눌러 확인할 수 있습니다. Gmail은 일반 비밀번호 대신 앱 비밀번호를 사용하세요. 이 UI는 인증 없이 민감 값을 브라우저에 표시하므로 신뢰된 로컬·내부망에서만 사용하세요. 저장 후 서비스를 재시작해야 실제 연결에 반영됩니다.</div><div class="settings-groups">${groups.map(([title,items])=>`<section class="settings-group"><h3>${title}</h3><div class="cols">${items.map(field).join('')}</div></section>`).join('')}</div><p id="notice"></p><button onclick="saveSettings()">설정 저장</button>`;
+  $('#editor').innerHTML=`<h2>연결 설정</h2><div class="warning">민감 값은 눈 버튼을 눌러 확인할 수 있습니다. Gmail은 일반 비밀번호 대신 앱 비밀번호를 사용하세요. 이 UI는 인증 없이 민감 값을 브라우저에 표시하므로 신뢰된 로컬·내부망에서만 사용하세요. 저장 후 서비스를 재시작해야 실제 연결에 반영됩니다.</div><div class="settings-groups">${groups.map(([title,items,channel])=>`<section class="settings-group"><div class="connection-section-heading"><h3>${title}</h3>${channel?`<button class="secondary" type="button" onclick="testConnection('${channel}')">테스트 메시지 전송</button>`:''}</div><div class="cols">${items.map(field).join('')}</div>${channel?`<p class="muted connection-test-result" id="${channel}-connection-test">저장된 현재 입력값으로 실제 테스트 메시지를 전송합니다.</p>`:''}</section>`).join('')}</div><p id="notice"></p><button onclick="saveSettings()">설정 저장</button>`;
   fields.forEach(([key])=>{$('#'+key).value=data.values[key]||defaults[key]||''});
+};
+window.testConnection=async function(channel){
+  const result=$('#'+channel+'-connection-test');
+  const button=document.querySelector(`button[onclick="testConnection('${channel}')"]`);
+  if(button)button.disabled=true;
+  result.textContent='현재 입력값을 저장한 뒤 테스트 메시지를 전송 중입니다…';
+  try{
+    const values={};document.querySelectorAll('.setting-field').forEach(input=>values[input.id]=input.value);
+    await api('/api/settings',{method:'PUT',body:JSON.stringify({values})});
+    const response=await api('/api/settings/test/'+channel,{method:'POST'});
+    result.textContent='✓ '+response.message+' 실행 로그에서도 결과를 확인할 수 있습니다.';
+    result.classList.remove('connection-test-failed');
+  }catch(error){
+    result.textContent='전송 실패: '+error.message+' 실행 로그에서 상세 내용을 확인하세요.';
+    result.classList.add('connection-test-failed');
+  }finally{if(button)button.disabled=false}
 };
 </script></body></html>

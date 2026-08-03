@@ -1,3 +1,4 @@
+import logging
 from pathlib import Path
 from typing import Any, Literal
 
@@ -5,11 +6,18 @@ from fastapi import FastAPI, HTTPException
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 
+from prompt_dispatcher.adapters.outbound.channels.nextcloud_talk import NextcloudTalkChannel
+from prompt_dispatcher.adapters.outbound.channels.smtp_email import SmtpEmailChannel
+from prompt_dispatcher.adapters.outbound.channels.telegram import TelegramChannel
 from prompt_dispatcher.adapters.outbound.repositories.web_management import WebManagementStore
 from prompt_dispatcher.application.dto.commands import RunJobCommand
 from prompt_dispatcher.application.use_cases.send_prompt import SendPromptCommand
 from prompt_dispatcher.bootstrap.container import ApplicationContainer
+from prompt_dispatcher.bootstrap.settings import Settings
+from prompt_dispatcher.domain.delivery import OutboundMessage
 from prompt_dispatcher.domain.job import ChannelDestination
+
+logger = logging.getLogger(__name__)
 
 
 class JobPayload(BaseModel):
@@ -297,6 +305,64 @@ def create_app(container: ApplicationContainer) -> FastAPI:
     def save_settings(payload: SecretPayload) -> dict[str, str]:
         store.save_secrets(payload.values)
         return {"status": "saved", "message": "Restart the service to apply connection settings."}
+
+    @app.post("/api/settings/test/{channel_type}")
+    def test_connection(
+        channel_type: Literal["telegram", "nextcloud_talk", "email"]
+    ) -> dict[str, str]:
+        """Send a short real message using the settings currently saved by the UI."""
+        values = store.read_values()
+        settings = Settings.from_environment()
+        message = OutboundMessage("Prompt Dispatcher 연결 테스트", "연결 테스트 메시지입니다.")
+        channel: TelegramChannel | NextcloudTalkChannel | SmtpEmailChannel
+        try:
+            if channel_type == "telegram":
+                channel = TelegramChannel(
+                    {
+                        "personal": (
+                            values["TELEGRAM_PERSONAL_BOT_TOKEN"],
+                            values["TELEGRAM_PERSONAL_CHAT_ID"],
+                        )
+                    }
+                )
+            elif channel_type == "nextcloud_talk":
+                channel = NextcloudTalkChannel(
+                    values["NEXTCLOUD_URL"],
+                    {
+                        "personal": (
+                            values["NEXTCLOUD_TALK_PERSONAL_USERNAME"],
+                            values["NEXTCLOUD_TALK_PERSONAL_APP_PASSWORD"],
+                            values["NEXTCLOUD_TALK_PERSONAL_ROOM_TOKEN"],
+                        )
+                    },
+                    settings.nextcloud_verify_tls,
+                )
+            else:
+                channel = SmtpEmailChannel(
+                    settings.smtp_host,
+                    settings.smtp_port,
+                    settings.smtp_username,
+                    settings.smtp_password,
+                    settings.smtp_from_address,
+                    {"personal": tuple(part.strip() for part in values["SMTP_PERSONAL_TO"].split(",") if part.strip())},
+                    settings.smtp_use_tls,
+                )
+            receipt = channel.send("personal", message)
+        except Exception as error:
+            detail = str(error).replace("\n", " ")
+            logger.warning(
+                "event=connection_test_failed channel_type=%s error_type=%s error_message=%s",
+                channel_type,
+                type(error).__name__,
+                detail,
+            )
+            raise HTTPException(422, detail) from error
+        logger.info(
+            "event=connection_test_success channel_type=%s external_id=%s",
+            channel_type,
+            receipt.external_id,
+        )
+        return {"status": "sent", "message": "테스트 메시지를 전송했습니다."}
 
     @app.get("/api/logs")
     def logs(limit: int = 200) -> dict[str, object]:
