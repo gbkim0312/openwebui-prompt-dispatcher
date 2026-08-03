@@ -142,3 +142,29 @@ def test_run_job_combines_research_summaries_before_single_delivery() -> None:
     assert client.requests[1].model == "model"
     assert "요약 결과" in client.requests[1].prompt
     assert channel.sent_messages[0].body == "요약 결과"
+
+
+def test_run_job_skips_disabled_research_task() -> None:
+    job = Job(
+        "briefing",
+        "Briefing",
+        True,
+        Schedule("0 7 * * *", "UTC"),
+        OpenWebUiOptions("model"),
+        PromptDefinition(text="최종 브리핑"),
+        (ChannelDestination("fake", "one"),),
+        research_tasks=(ResearchTask("economy", "경제", "오늘 경제 뉴스", enabled=False),),
+    )
+    client = FakeOpenWebUiClient("최종 결과")
+    result = RunJob(
+        InMemoryJobRepository([job]),
+        FakePromptLoader(),
+        JinjaTemplateRenderer(),
+        client,
+        InMemoryExecutionRepository(),
+        ChannelResolver([FakeMessageChannel()]),
+        FakeClock(datetime(2026, 1, 1, tzinfo=UTC)),
+    ).execute(RunJobCommand("briefing"))
+
+    assert result.status == ExecutionStatus.SUCCESS
+    assert len(client.requests) == 1

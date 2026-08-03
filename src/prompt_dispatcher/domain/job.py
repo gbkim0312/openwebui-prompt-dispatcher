@@ -60,6 +60,7 @@ class ResearchTask:
     include_domains: tuple[str, ...] = ()
     exclude_domains: tuple[str, ...] = ()
     model: str | None = None
+    enabled: bool = True
 
 
 @dataclass(frozen=True)

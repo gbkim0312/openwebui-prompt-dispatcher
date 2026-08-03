@@ -86,6 +86,9 @@ class RunJob:
             }
             research_results: dict[str, str] = {}
             for task in job.research_tasks:
+                if not task.enabled:
+                    logger.info("event=research_task_skipped job_id=%s task_id=%s", job.id, task.id)
+                    continue
                 task_model = (
                     job.openwebui_options.model if job.research_use_parent_model else task.model
                 )
@@ -116,7 +119,9 @@ class RunJob:
             if research_results:
                 variables["research"] = research_results
                 variables["research_context"] = "\n\n".join(
-                    f"## {task.name}\n{research_results[task.id]}" for task in job.research_tasks
+                    f"## {task.name}\n{research_results[task.id]}"
+                    for task in job.research_tasks
+                    if task.enabled
                 )
             prompt = self._renderer.render(template, variables)
             if command.skip_openwebui:

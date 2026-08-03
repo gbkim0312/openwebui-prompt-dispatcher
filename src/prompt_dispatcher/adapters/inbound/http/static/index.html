@@ -128,4 +128,17 @@ sectionizeJobEditor();
 </style><script>
 let jobResearchTestInProgress=false;
 window.testJobPrompt=async function(){if(jobResearchTestInProgress)return;const result=$('#job-test-result'),button=document.querySelector('button[onclick="testJobPrompt()"]');jobResearchTestInProgress=true;if(button){button.disabled=true;button.textContent='저장 및 테스트 실행 중…'}result.textContent='현재 설정을 저장한 뒤 리서치·최종 요약·실제 채널 전송을 실행 중입니다…';try{const saved=await saveJob();if(!saved){result.textContent='저장에 실패해 테스트를 중단했습니다.';return}const data=await api(`/api/jobs/${current}/run?dry_run=false&allow_disabled=true`,{method:'POST'});result.textContent=`테스트 전송 완료: ${data.status}${data.message?' · '+data.message:''}\n\n하위 리서치와 최종 종합 결과가 선택한 채널로 전송되었습니다.`}catch(error){result.textContent='테스트 실패: '+error.message}finally{jobResearchTestInProgress=false;if(button){button.disabled=false;button.textContent='테스트 전송'}}};
-</script></body></html>
+</script><script>
+const collectResearchTasksWithActivation=collectResearchTasks;
+collectResearchTasks=function(){return collectResearchTasksWithActivation().map((task,index)=>({...task,enabled:document.querySelectorAll('#research-task-list .research-enabled')[index]?.checked??researchTasksUi[index]?.enabled!==false}))};
+function decorateResearchActivation(){const cards=[...document.querySelectorAll('#research-task-list .settings-group')];cards.forEach((card,index)=>{const enabled=researchTasksUi[index]?.enabled!==false;card.classList.toggle('research-inactive',!enabled);if(card.dataset.activationReady)return;card.dataset.activationReady='true';const header=card.querySelector(':scope > .row'),label=document.createElement('label'),input=document.createElement('input'),text=document.createElement('span');input.type='checkbox';input.className='research-enabled';input.checked=enabled;input.style.width='auto';text.textContent=' 활성';label.style.cssText='display:flex;align-items:center;gap:3px;margin:0;font-size:13px';label.append(input,text);input.onchange=()=>card.classList.toggle('research-inactive',!input.checked);header?.insertBefore(label,header.querySelector('.research-toggle'))})}
+function setAllResearchEnabled(enabled){researchTasksUi=collectResearchTasks();researchTasksUi.forEach(task=>{task.enabled=enabled});renderResearchTasks();setTimeout(decorateResearchActivation,0)}
+function addResearchBulkControls(){const header=$('#research-form .research-section-header');if(!header||header.dataset.bulkControlsReady)return;header.dataset.bulkControlsReady='true';const controls=document.createElement('div');controls.className='row research-bulk-controls';controls.innerHTML='<button class="secondary" type="button" onclick="setAllResearchEnabled(true)">전체 활성화</button><button class="secondary" type="button" onclick="setAllResearchEnabled(false)">전체 비활성화</button>';header.append(controls)}
+window.setAllResearchEnabled=setAllResearchEnabled;
+new MutationObserver(()=>{decorateResearchActivation();addResearchBulkControls()}).observe(document.body,{childList:true,subtree:true});
+decorateResearchActivation();addResearchBulkControls();
+</script><style>
+#research-task-list .research-inactive{background:#eef1f4;border-style:dashed;opacity:.62;filter:grayscale(.7)}
+#research-task-list .research-inactive h3{text-decoration:line-through}
+.research-bulk-controls{margin-left:auto}
+</style></body></html>

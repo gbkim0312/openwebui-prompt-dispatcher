@@ -194,6 +194,7 @@ def create_app(container: ApplicationContainer) -> FastAPI:
                             "include_domains": list(task.include_domains),
                             "exclude_domains": list(task.exclude_domains),
                             "model": task.model,
+                            "enabled": task.enabled,
                         }
                         for task in job.research_tasks
                     ],

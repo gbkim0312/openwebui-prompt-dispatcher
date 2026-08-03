@@ -150,6 +150,7 @@ class YamlJobRepository:
             tuple(str(value) for value in raw.get("include_domains", [])),
             tuple(str(value) for value in raw.get("exclude_domains", [])),
             str(raw["model"]) if raw.get("model") else None,
+            bool(raw.get("enabled", True)),
         )
 
     def find_all(self) -> list[Job]:
