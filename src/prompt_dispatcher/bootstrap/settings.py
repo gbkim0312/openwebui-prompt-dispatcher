@@ -52,6 +52,12 @@ class Settings:
     nextcloud_url: str
     nextcloud_verify_tls: bool
     tavily_api_key: str
+    smtp_host: str
+    smtp_port: int
+    smtp_username: str
+    smtp_password: str
+    smtp_from_address: str
+    smtp_use_tls: bool
 
     @classmethod
     def from_environment(cls) -> "Settings":
@@ -78,4 +84,10 @@ class Settings:
             value("NEXTCLOUD_URL"),
             _truth(os.getenv("NEXTCLOUD_VERIFY_TLS", "true")),
             value("TAVILY_API_KEY"),
+            value("SMTP_HOST", "smtp.gmail.com"),
+            int(value("SMTP_PORT", "587")),
+            value("SMTP_USERNAME"),
+            value("SMTP_PASSWORD"),
+            value("SMTP_FROM") or value("SMTP_USERNAME"),
+            _truth(value("SMTP_USE_TLS", "true")),
         )

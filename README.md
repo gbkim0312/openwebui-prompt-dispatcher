@@ -146,7 +146,20 @@ UI에서 저장한 연결 키는 `data/management.env`에 저장됩니다. **키
 | `NEXTCLOUD_TALK_PERSONAL_USERNAME` | 빈 값 | `target: personal` Talk 전송용 사용자명입니다. |
 | `NEXTCLOUD_TALK_PERSONAL_APP_PASSWORD` | 빈 값 | Talk 전송용 Nextcloud 앱 비밀번호입니다. 일반 비밀번호 대신 앱 비밀번호를 사용하세요. |
 | `NEXTCLOUD_TALK_PERSONAL_ROOM_TOKEN` | 빈 값 | 메시지를 보낼 Talk Room Token입니다. |
+| `SMTP_HOST` | `smtp.gmail.com` | SMTP 서버 주소입니다. Gmail은 기본값을 그대로 사용합니다. |
+| `SMTP_PORT` | `587` | SMTP 서버 포트입니다. Gmail STARTTLS는 `587`을 사용합니다. |
+| `SMTP_USERNAME` | 빈 값 | SMTP 로그인 계정입니다. Gmail은 발신 Gmail 주소를 입력합니다. |
+| `SMTP_PASSWORD` | 빈 값 | SMTP 로그인 비밀값입니다. Gmail은 일반 계정 비밀번호가 아니라 Google 계정의 **앱 비밀번호**를 입력합니다. |
+| `SMTP_FROM` | `SMTP_USERNAME` | 메일의 발신자 주소입니다. 비우면 `SMTP_USERNAME`을 사용합니다. SMTP 서버에서 허용한 주소여야 합니다. |
+| `SMTP_USE_TLS` | `true` | STARTTLS 사용 여부입니다. Gmail은 `true`를 유지하세요. |
+| `SMTP_PERSONAL_TO` | 빈 값 | `type: email`, `target: personal`로 보낼 수신자 이메일입니다. 여러 명은 쉼표로 구분합니다. |
 | `ENABLE_FAKE_CHANNEL` | `false` | `true`일 때 `type: fake` 채널을 활성화합니다. 테스트와 로컬 검증 전용입니다. |
+
+### Gmail SMTP 설정
+
+Gmail 전송에는 API 키가 아니라 SMTP용 **앱 비밀번호**를 사용합니다. Google 계정에서 2단계 인증을 켠 뒤 앱 비밀번호를 발급하고, 설정 탭의 `SMTP 사용자 이메일`에 Gmail 주소, `SMTP 앱 비밀번호`에 발급받은 앱 비밀번호를 입력하세요. 서버는 `smtp.gmail.com`, 포트는 `587`, STARTTLS는 `true`로 둡니다. `수신 이메일`에 실제 받을 주소를 입력하고 저장·재시작하면 전송 채널 목록에 `email: personal`이 나타납니다.
+
+예약 또는 즉시 전송 화면에서 `email: personal`을 체크하면 동일한 결과를 이메일로도 전송합니다. 수신자를 여러 명 지정할 때는 `person1@example.com, person2@example.com` 형식으로 입력하세요.
 
 `personal` 이외의 채널 target도 지원합니다. target을 대문자화하고 하이픈을 밑줄로 바꿔 변수명에 넣습니다.
 

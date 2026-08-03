@@ -5,6 +5,7 @@ from typing import cast
 from prompt_dispatcher.adapters.inbound.scheduler.apscheduler_adapter import ApschedulerAdapter
 from prompt_dispatcher.adapters.outbound.channels.fake import FakeMessageChannel
 from prompt_dispatcher.adapters.outbound.channels.nextcloud_talk import NextcloudTalkChannel
+from prompt_dispatcher.adapters.outbound.channels.smtp_email import SmtpEmailChannel
 from prompt_dispatcher.adapters.outbound.channels.telegram import TelegramChannel
 from prompt_dispatcher.adapters.outbound.openwebui.cached_model_catalog import CachedModelCatalog
 from prompt_dispatcher.adapters.outbound.openwebui.http_adapter import HttpOpenWebUiAdapter
@@ -79,12 +80,30 @@ def build_container(settings: Settings | None = None) -> ApplicationContainer:
         "NEXTCLOUD_TALK", "personal", ("USERNAME", "APP_PASSWORD", "ROOM_TOKEN"), managed
     ):
         talk_targets.setdefault("personal", personal_talk)
+    email_targets = {
+        d.target: value
+        for j in jobs.find_all()
+        for d in j.destinations
+        if d.channel_type == "email"
+        if (value := _target("SMTP", d.target, ("TO",), managed))
+    }
+    if personal_email := _target("SMTP", "personal", ("TO",), managed):
+        email_targets.setdefault("personal", personal_email)
     channels: list[MessageChannelPort] = [
         TelegramChannel(cast(dict[str, tuple[str, str]], telegram_targets)),
         NextcloudTalkChannel(
             settings.nextcloud_url,
             cast(dict[str, tuple[str, str, str]], talk_targets),
             settings.nextcloud_verify_tls,
+        ),
+        SmtpEmailChannel(
+            settings.smtp_host,
+            settings.smtp_port,
+            settings.smtp_username,
+            settings.smtp_password,
+            settings.smtp_from_address,
+            email_targets,
+            settings.smtp_use_tls,
         ),
     ]
     if settings.enable_fake_channel:

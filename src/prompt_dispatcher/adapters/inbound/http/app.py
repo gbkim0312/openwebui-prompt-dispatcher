@@ -101,6 +101,8 @@ def create_app(container: ApplicationContainer) -> FastAPI:
             )
         ):
             destinations.add(("nextcloud_talk", "personal"))
+        if all(values.get(key) for key in ("SMTP_USERNAME", "SMTP_PASSWORD", "SMTP_PERSONAL_TO")):
+            destinations.add(("email", "personal"))
         return [
             {"type": channel_type, "target": target}
             for channel_type, target in sorted(destinations)

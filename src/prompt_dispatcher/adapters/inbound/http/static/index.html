@@ -141,4 +141,22 @@ decorateResearchActivation();addResearchBulkControls();
 #research-task-list .research-inactive{background:#eef1f4;border-style:dashed;opacity:.62;filter:grayscale(.7)}
 #research-task-list .research-inactive h3{text-decoration:line-through}
 .research-bulk-controls{margin-left:auto}
-</style></body></html>
+</style><script>
+/* Connection settings renderer kept separate so newly added transports stay grouped clearly. */
+sensitiveSettings.add('SMTP_PASSWORD');
+window.showSettings=async function(){
+  if(logTimer)clearInterval(logTimer);
+  const data=await api('/api/settings');
+  const defaults={SMTP_HOST:'smtp.gmail.com',SMTP_PORT:'587',SMTP_USE_TLS:'true'};
+  const groups=[
+    ['Open WebUI',[['OPENWEBUI_BASE_URL','Open WebUI URL'],['OPENWEBUI_API_KEY','Open WebUI API Key']]],
+    ['Telegram',[['TELEGRAM_PERSONAL_BOT_TOKEN','Telegram Bot Token'],['TELEGRAM_PERSONAL_CHAT_ID','Telegram Chat ID']]],
+    ['Nextcloud Talk',[['NEXTCLOUD_URL','Nextcloud URL'],['NEXTCLOUD_TALK_PERSONAL_USERNAME','Talk username'],['NEXTCLOUD_TALK_PERSONAL_APP_PASSWORD','Talk app password'],['NEXTCLOUD_TALK_PERSONAL_ROOM_TOKEN','Talk room token']]],
+    ['SMTP 이메일',[['SMTP_HOST','SMTP 서버'],['SMTP_PORT','SMTP 포트'],['SMTP_USERNAME','SMTP 사용자 이메일'],['SMTP_PASSWORD','SMTP 앱 비밀번호'],['SMTP_FROM','발신자 이메일 (비우면 사용자 이메일)'],['SMTP_PERSONAL_TO','수신 이메일 (쉼표로 여러 명 가능)'],['SMTP_USE_TLS','STARTTLS 사용 (true / false)']]]
+  ];
+  const fields=groups.flatMap(([,items])=>items);
+  const field=([key,label])=>`<div><label>${label} ${data.configured.includes(key)?'<span class="muted">(설정됨)</span>':''}</label><div class="${sensitiveSettings.has(key)?'input-with-toggle':''}"><input class="setting-field" id="${key}" type="${sensitiveSettings.has(key)?'password':'text'}" autocomplete="off">${sensitiveSettings.has(key)?`<button class="secondary" type="button" onclick="toggleSetting('${key}',this)" aria-label="값 표시 또는 숨김">👁</button>`:''}</div></div>`;
+  $('#editor').innerHTML=`<h2>연결 설정</h2><div class="warning">민감 값은 눈 버튼을 눌러 확인할 수 있습니다. Gmail은 일반 비밀번호 대신 앱 비밀번호를 사용하세요. 이 UI는 인증 없이 민감 값을 브라우저에 표시하므로 신뢰된 로컬·내부망에서만 사용하세요. 저장 후 서비스를 재시작해야 실제 연결에 반영됩니다.</div><div class="settings-groups">${groups.map(([title,items])=>`<section class="settings-group"><h3>${title}</h3><div class="cols">${items.map(field).join('')}</div></section>`).join('')}</div><p id="notice"></p><button onclick="saveSettings()">설정 저장</button>`;
+  fields.forEach(([key])=>{$('#'+key).value=data.values[key]||defaults[key]||''});
+};
+</script></body></html>

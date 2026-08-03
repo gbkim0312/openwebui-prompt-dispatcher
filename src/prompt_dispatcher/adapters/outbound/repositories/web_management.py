@@ -66,6 +66,13 @@ class WebManagementStore:
             "NEXTCLOUD_TALK_PERSONAL_USERNAME",
             "NEXTCLOUD_TALK_PERSONAL_APP_PASSWORD",
             "NEXTCLOUD_TALK_PERSONAL_ROOM_TOKEN",
+            "SMTP_HOST",
+            "SMTP_PORT",
+            "SMTP_USERNAME",
+            "SMTP_PASSWORD",
+            "SMTP_FROM",
+            "SMTP_USE_TLS",
+            "SMTP_PERSONAL_TO",
         }
         stored: dict[str, str] = {}
         if self._secrets.exists():
@@ -86,6 +93,13 @@ class WebManagementStore:
             "NEXTCLOUD_TALK_PERSONAL_USERNAME",
             "NEXTCLOUD_TALK_PERSONAL_APP_PASSWORD",
             "NEXTCLOUD_TALK_PERSONAL_ROOM_TOKEN",
+            "SMTP_HOST",
+            "SMTP_PORT",
+            "SMTP_USERNAME",
+            "SMTP_PASSWORD",
+            "SMTP_FROM",
+            "SMTP_USE_TLS",
+            "SMTP_PERSONAL_TO",
         }
         old = {}
         if self._secrets.exists():
