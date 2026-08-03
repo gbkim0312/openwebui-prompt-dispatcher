@@ -145,6 +145,10 @@ class HttpOpenWebUiAdapter:
                 headers={"Authorization": f"Bearer {self._key}"},
                 timeout=request.timeout_seconds,
             ) as response:
+                # A streaming response has not been read yet when raise_for_status()
+                # raises. Read an error body first so its useful 4xx detail is available.
+                if response.is_error:
+                    response.read()
                 response.raise_for_status()
                 for _ in response.iter_bytes():
                     pass
@@ -168,13 +172,7 @@ class HttpOpenWebUiAdapter:
                 time.sleep(1)
             raise OpenWebUiError("Open WebUI response timed out")
         except httpx.HTTPStatusError as exc:
-            detail = ""
-            try:
-                error_payload = exc.response.json()
-                if isinstance(error_payload, dict):
-                    detail = str(error_payload.get("detail") or error_payload.get("message") or "")
-            except ValueError:
-                pass
+            detail = self._error_detail(exc.response)
             suffix = f": {detail[:500]}" if detail else ""
             raise OpenWebUiError(
                 "Open WebUI chat-backed generation failed "
@@ -182,6 +180,16 @@ class HttpOpenWebUiAdapter:
             ) from exc
         except (httpx.HTTPError, KeyError, TypeError, ValueError) as exc:
             raise OpenWebUiError("Open WebUI chat-backed tool generation failed") from exc
+
+    @staticmethod
+    def _error_detail(response: httpx.Response) -> str:
+        try:
+            payload = response.json()
+            if isinstance(payload, dict):
+                return str(payload.get("detail") or payload.get("message") or "")
+        except (httpx.HTTPError, ValueError):
+            return ""
+        return ""
 
     @staticmethod
     def _ensure_final_content(content: object) -> None:

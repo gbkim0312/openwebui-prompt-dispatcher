@@ -176,10 +176,11 @@ class RunJob:
                 ),
             )
             logger.error(
-                "event=job_failed job_id=%s execution_id=%s error_type=%s",
+                "event=job_failed job_id=%s execution_id=%s error_type=%s error_message=%s",
                 job.id,
                 execution.id,
                 type(exc).__name__,
+                str(exc).replace("\n", " "),
             )
             return RunJobResult(execution.id, ExecutionStatus.FAILED, str(exc))
         if command.dry_run:
