@@ -103,9 +103,16 @@ labelResearchCards();
 #research-task-list .research-toggle{margin-left:auto}
 </style><script>
 function prepareSearchPanel(prefix){const control=$('#'+prefix+'-search-control');if(!control)return null;const label=control.querySelector(':scope > label');let panel=control.querySelector(':scope > .search-options');if(!panel){panel=document.createElement('div');panel.className='search-options';for(const child of [...control.children])if(child!==label)panel.append(child);control.append(panel)}return {control,label,panel}}
-bindSearchControl=function(prefix){const prepared=prepareSearchPanel(prefix);if(!prepared)return;const {control,panel}=prepared,enabled=$('#'+prefix+'-search-enabled');const update=()=>{const active=enabled.checked;panel.hidden=!active;for(const input of panel.querySelectorAll('input,select,textarea,button'))input.disabled=!active;control.classList.toggle('search-disabled',!active)};enabled.onchange=update;update()};
-for(const prefix of ['job','instant'])bindSearchControl(prefix);
+bindSearchControl=function(prefix){const prepared=prepareSearchPanel(prefix);if(!prepared)return;const {control,panel}=prepared,enabled=$('#'+prefix+'-search-enabled');const update=()=>{const active=enabled.checked;panel.hidden=!active;for(const input of panel.querySelectorAll('input,select,textarea,button'))input.disabled=!active;control.classList.toggle('search-disabled',!active)};enabled.onchange=update;update();control.dataset.searchPanelReady='true'};
+function hydrateSearchControls(){for(const prefix of ['job','instant']){const control=$('#'+prefix+'-search-control');if(control&&!control.dataset.searchPanelReady)bindSearchControl(prefix)}}
+new MutationObserver(hydrateSearchControls).observe(document.body,{childList:true,subtree:true});
+hydrateSearchControls();
+function tidyResearchSection(){const form=$('#research-form'),header=form?.querySelector('.research-section-header > div'),toggle=$('#research-use-parent-model');if(!header||!toggle||toggle.parentElement===header)return;const hint=toggle.parentElement?.nextElementSibling;header.append(toggle);if(hint?.matches('p'))header.append(hint)}
+new MutationObserver(tidyResearchSection).observe(document.body,{childList:true,subtree:true});
+tidyResearchSection();
 </script><style>
 .search-options{padding-top:12px}
 .search-disabled .search-options{display:none}
+#job-search-control:not(:has(#job-search-enabled:checked))>:not(label),#instant-search-control:not(:has(#instant-search-enabled:checked))>:not(label){display:none!important}
+#job-search-control:has(#job-search-enabled:checked)>.search-options,#instant-search-control:has(#instant-search-enabled:checked)>.search-options{padding:16px;margin-top:10px;border:1px solid #dce3ea;border-radius:9px;background:#f9fbfd}
 </style></body></html>
