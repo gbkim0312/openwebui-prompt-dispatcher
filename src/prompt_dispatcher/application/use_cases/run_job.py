@@ -226,12 +226,13 @@ class RunJob:
                 )
                 failures += 1
                 logger.warning(
-                    "event=delivery_failed job_id=%s execution_id=%s channel_type=%s target=%s error_type=%s",
+                    "event=delivery_failed job_id=%s execution_id=%s channel_type=%s target=%s error_type=%s error_message=%s",
                     job.id,
                     execution.id,
                     destination.channel_type,
                     destination.target,
                     type(exc).__name__,
+                    str(exc).replace("\n", " "),
                 )
             self._executions.add_delivery(execution.id, delivery)
         status = determine_execution_status(successes, failures)

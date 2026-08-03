@@ -117,10 +117,11 @@ class SendPrompt:
             except Exception as error:
                 failed.append(target_label)
                 logger.warning(
-                    "event=instant_delivery_failed channel_type=%s target=%s error_type=%s",
+                    "event=instant_delivery_failed channel_type=%s target=%s error_type=%s error_message=%s",
                     destination.channel_type,
                     destination.target,
                     type(error).__name__,
+                    str(error).replace("\n", " "),
                 )
         logger.info(
             "event=instant_prompt_completed dry_run=false successful=%s failed=%s",

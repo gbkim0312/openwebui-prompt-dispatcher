@@ -52,5 +52,6 @@ class SmtpEmailChannel:
                 client.login(self._username, self._password)
                 client.send_message(email)
         except (OSError, smtplib.SMTPException, ValueError) as exc:
-            raise ChannelDeliveryError("SMTP email delivery failed") from exc
+            detail = str(exc).replace(self._password, "[redacted]").replace("\n", " ")
+            raise ChannelDeliveryError(f"SMTP email delivery failed: {detail}") from exc
         return DeliveryReceipt(str(email["Message-ID"]))

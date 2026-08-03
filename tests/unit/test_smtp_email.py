@@ -1,3 +1,4 @@
+import smtplib
 from email.message import EmailMessage
 from typing import Self
 
@@ -65,3 +66,26 @@ def test_smtp_email_rejects_unknown_target() -> None:
 
     with pytest.raises(ChannelDeliveryError, match="not configured"):
         channel.send("personal", OutboundMessage("제목", "본문"))
+
+
+def test_smtp_email_error_includes_safe_server_reason() -> None:
+    class RejectingSmtp(FakeSmtp):
+        def login(self, username: str, password: str) -> None:
+            raise smtplib.SMTPAuthenticationError(535, f"invalid password: {password}")
+
+    channel = SmtpEmailChannel(
+        "smtp.example.com",
+        587,
+        "sender",
+        "secret-value",
+        "sender@example.com",
+        {"personal": ("recipient@example.com",)},
+        smtp_factory=lambda *_args, **_kwargs: RejectingSmtp(),  # type: ignore[arg-type]
+    )
+
+    with pytest.raises(ChannelDeliveryError) as error:
+        channel.send("personal", OutboundMessage("제목", "본문"))
+
+    assert "535" in str(error.value)
+    assert "[redacted]" in str(error.value)
+    assert "secret-value" not in str(error.value)
