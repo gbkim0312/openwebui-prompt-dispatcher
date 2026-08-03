@@ -263,11 +263,16 @@ function emailRecipientControl(checkbox,initialTarget='personal'){
   checkbox.dataset.emailRecipientReady='true';
   const wrapper=document.createElement('div');wrapper.className='email-recipient-control';
   const initial=initialTarget==='personal'?'':initialTarget;
-  wrapper.innerHTML=`<label>수신자 이메일 <span class="muted">(쉼표로 여러 명 입력)</span></label><input type="text" class="email-recipient" placeholder="비우면 설정의 기본 수신자 사용" value="${escapeHtml(initial)}">`;
+  checkbox.dataset.emailRegistered=checkbox.checked?'true':'false';
+  wrapper.innerHTML=`<label>수신자 이메일 <span class="muted">(쉼표로 여러 명 입력)</span></label><div class="email-recipient-row"><input type="text" class="email-recipient" placeholder="example@example.com" value="${escapeHtml(initial)}"><button type="button" class="secondary email-recipient-register">수신자 등록</button></div><p class="muted email-recipient-status"></p>`;
   checkbox.closest('label')?.insertAdjacentElement('afterend',wrapper);
-  const input=wrapper.querySelector('input');
-  const sync=()=>{wrapper.hidden=!checkbox.checked;checkbox.dataset.target=input.value.trim()||'personal'};
-  checkbox.addEventListener('change',sync);input.addEventListener('input',sync);sync();
+  const input=wrapper.querySelector('.email-recipient'),button=wrapper.querySelector('.email-recipient-register'),status=wrapper.querySelector('.email-recipient-status');
+  const registered=()=>{const target=checkbox.dataset.target||'personal';status.textContent=target==='personal'?'기본 수신자가 등록되어 있습니다.':'등록됨: '+target};
+  const sync=()=>{wrapper.hidden=!checkbox.checked;if(!checkbox.checked){checkbox.dataset.emailRegistered='false';status.textContent=''}else if(checkbox.dataset.emailRegistered==='true')registered()};
+  checkbox.addEventListener('change',sync);
+  input.addEventListener('input',()=>{if(checkbox.dataset.emailRegistered==='true'){checkbox.dataset.emailRegistered='false';status.textContent='수신자 주소가 변경되었습니다. 다시 등록하세요.'}});
+  button.addEventListener('click',()=>{const recipients=input.value.split(',').map(value=>value.trim()).filter(Boolean);if(!recipients.length||recipients.some(value=>!/^\S+@\S+\.\S+$/.test(value))){status.textContent='유효한 이메일 주소를 하나 이상 입력하세요.';status.classList.add('email-recipient-error');return}checkbox.dataset.target=recipients.join(',');checkbox.dataset.emailRegistered='true';status.classList.remove('email-recipient-error');registered();checkbox.dispatchEvent(new Event('change',{bubbles:true}))});
+  sync();
 }
 function addEmailRecipientControls(container,selector){
   for(const checkbox of container.querySelectorAll(selector)){
@@ -310,10 +315,17 @@ window.loadJobChannels=async function(selected){
       itemLabel.style.margin='0';itemLabel.style.display='flex';itemLabel.style.alignItems='center';itemLabel.append(input,text);picker.append(itemLabel);
     }
     addEmailRecipientControls(picker,'.job-channel');
-    const sync=()=>{textarea.value=[...picker.querySelectorAll('.job-channel:checked')].map(input=>`${input.dataset.type}:${input.dataset.target}`).join('\n')};
+    const sync=()=>{textarea.value=[...picker.querySelectorAll('.job-channel:checked')].filter(input=>input.dataset.type!=='email'||input.dataset.emailRegistered==='true').map(input=>`${input.dataset.type}:${input.dataset.target}`).join('\n')};
     picker.addEventListener('change',sync);sync();
   }catch(error){textarea.style.display='block';if(label)label.textContent='채널 (한 줄에 type:target, 예: telegram:personal)'}
 };
 </script><style>
-.email-recipient-control{flex:1 0 100%;max-width:520px;margin:0 0 4px 22px;padding:10px 12px;border-left:3px solid #1565c0;background:#f4f8fc}.email-recipient-control label{margin:0 0 4px;font-size:12px}.email-recipient-control input{width:100%}
-</style></body></html>
+.email-recipient-control{flex:1 0 100%;max-width:520px;margin:0 0 4px 22px;padding:10px 12px;border-left:3px solid #1565c0;background:#f4f8fc}.email-recipient-control label{margin:0 0 4px;font-size:12px}.email-recipient-row{display:flex;gap:8px}.email-recipient-row input{min-width:0;flex:1}.email-recipient-row button{white-space:nowrap}.email-recipient-status{margin:6px 0 0!important}.email-recipient-error{color:#b21f2d}
+</style><script>
+const sendInstantPromptBeforeRecipientRegistration=sendInstantPrompt;
+window.sendInstantPrompt=async function(){
+  const unregistered=[...document.querySelectorAll('.instant-channel:checked')].find(input=>input.dataset.type==='email'&&input.dataset.emailRegistered!=='true');
+  if(unregistered){$('#instant-result').textContent='이메일 수신자를 입력한 뒤 “수신자 등록”을 눌러주세요.';return}
+  return sendInstantPromptBeforeRecipientRegistration();
+};
+</script></body></html>
