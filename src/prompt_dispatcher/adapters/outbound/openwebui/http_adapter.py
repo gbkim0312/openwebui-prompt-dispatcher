@@ -1,3 +1,4 @@
+import logging
 import time
 from uuid import uuid4
 
@@ -5,6 +6,8 @@ import httpx
 
 from prompt_dispatcher.domain.errors import OpenWebUiError
 from prompt_dispatcher.domain.job import OpenWebUiRequest, OpenWebUiResponse
+
+logger = logging.getLogger(__name__)
 
 
 class HttpOpenWebUiAdapter:
@@ -29,7 +32,24 @@ class HttpOpenWebUiAdapter:
         Creating the chat and reading its completed assistant message mirrors
         that browser flow and also works for ordinary prompts.
         """
-        return self._generate_in_chat(request)
+        # Some Open WebUI provider routers intermittently return a transient
+        # "Model not found" while their model catalog still lists the model.
+        # A short retry fixes that case without masking invalid request errors.
+        for attempt in range(3):
+            try:
+                return self._generate_in_chat(request)
+            except OpenWebUiError as error:
+                if "model not found" not in str(error).lower() or attempt == 2:
+                    raise
+                delay = attempt + 1
+                logger.warning(
+                    "event=openwebui_model_not_found_retry model=%s attempt=%s delay_seconds=%s",
+                    request.model,
+                    attempt + 1,
+                    delay,
+                )
+                time.sleep(delay)
+        raise AssertionError("unreachable")
 
     def _generate_stateless(self, request: OpenWebUiRequest) -> OpenWebUiResponse:
         payload = {
