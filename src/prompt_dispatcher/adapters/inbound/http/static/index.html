@@ -115,4 +115,14 @@ tidyResearchSection();
 .search-disabled .search-options{display:none}
 #job-search-control:not(:has(#job-search-enabled:checked))>:not(label),#instant-search-control:not(:has(#instant-search-enabled:checked))>:not(label){display:none!important}
 #job-search-control:has(#job-search-enabled:checked)>.search-options,#instant-search-control:has(#instant-search-enabled:checked)>.search-options{padding:16px;margin-top:10px;border:1px solid #dce3ea;border-radius:9px;background:#f9fbfd}
+</style><script>
+function sectionizeJobEditor(){const editor=$('#editor'),research=$('#research-form'),result=$('#job-test-result');if(!editor||!research||!result||editor.dataset.jobSectionsReady)return;const titleRow=$('#notice')?.closest('.row'),fields=titleRow?.nextElementSibling,testTitle=result.previousElementSibling;if(!titleRow||!fields||!testTitle)return;const settings=document.createElement('section'),results=document.createElement('section');settings.className='job-section-card job-settings-card';results.className='job-section-card job-results-card';editor.insertBefore(settings,titleRow);settings.append(titleRow,fields);research.classList.add('job-section-card','job-research-card');testTitle.before(results);results.append(testTitle,result);editor.dataset.jobSectionsReady='true'}
+new MutationObserver(sectionizeJobEditor).observe(document.body,{childList:true,subtree:true});
+sectionizeJobEditor();
+</script><style>
+#editor>.job-section-card{margin:0 0 18px;padding:22px;border:1px solid #dce3ea;border-radius:12px;background:#fff;box-shadow:0 1px 4px #13263a08}
+#editor>.job-settings-card>.row:first-child{margin-bottom:14px}
+#editor>.job-research-card{background:#f9fbfd}
+#editor>.job-results-card h3{margin-bottom:12px}
+#editor>.job-results-card .log-view{min-height:250px}
 </style></body></html>
