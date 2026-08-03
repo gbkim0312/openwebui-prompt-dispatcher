@@ -94,6 +94,17 @@ class RunJob:
                 if not task.enabled:
                     logger.info("event=research_task_skipped job_id=%s task_id=%s", job.id, task.id)
                     continue
+                current_day = ("mon", "tue", "wed", "thu", "fri", "sat", "sun")[
+                    scheduled.weekday()
+                ]
+                if task.days_of_week and current_day not in task.days_of_week:
+                    logger.info(
+                        "event=research_task_skipped job_id=%s task_id=%s reason=weekday day=%s",
+                        job.id,
+                        task.id,
+                        current_day,
+                    )
+                    continue
                 try:
                     task_model = (
                         job.openwebui_options.model if job.research_use_parent_model else task.model
@@ -148,7 +159,7 @@ class RunJob:
                 variables["research_context"] = "\n\n".join(
                     f"## {task.name}\n{research_results[task.id]}"
                     for task in job.research_tasks
-                    if task.enabled
+                    if task.enabled and task.id in research_results
                 )
             prompt = self._renderer.render(template, variables)
             if command.skip_openwebui:

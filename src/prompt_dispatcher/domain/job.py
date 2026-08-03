@@ -61,6 +61,9 @@ class ResearchTask:
     exclude_domains: tuple[str, ...] = ()
     model: str | None = None
     enabled: bool = True
+    # Empty means every day on which the parent job runs. Values are cron
+    # weekday names: mon through sun.
+    days_of_week: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)

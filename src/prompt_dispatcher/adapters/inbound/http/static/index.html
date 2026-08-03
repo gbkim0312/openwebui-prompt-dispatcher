@@ -190,4 +190,71 @@ window.showHistory=async function(){if(logTimer)clearInterval(logTimer);$('#edit
 window.loadHistory=async function(){const list=$('#history-list'),query=$('#history-query').value.trim(),days=$('#history-days').value;list.textContent='불러오는 중…';try{const records=await api(`/api/executions?days=${encodeURIComponent(days)}&query=${encodeURIComponent(query)}`);if(!records.length){list.textContent='조건에 맞는 실행 기록이 없습니다.';return}list.innerHTML=records.map(record=>`<button class="history-item" type="button" onclick="openHistory('${record.id}',this)"><b>${escapeHtml(record.job_id)}</b><br><span class="muted">${escapeHtml(record.status)} · ${escapeHtml(record.started_at)}</span><br><span class="muted">${escapeHtml(record.preview||record.error_message||'응답 없음').slice(0,120)}</span></button>`).join('')}catch(error){list.textContent='이력을 불러오지 못했습니다: '+error.message}};
 window.openHistory=async function(id,button){document.querySelectorAll('.history-item').forEach(item=>item.classList.remove('active'));button?.classList.add('active');const detail=$('#history-detail');detail.textContent='응답을 불러오는 중…';try{const record=await api('/api/executions/'+encodeURIComponent(id));const channels=await api('/api/channels');const channelInputs=channels.map(channel=>`<label><input class="history-channel" type="checkbox" data-type="${escapeHtml(channel.type)}" data-target="${escapeHtml(channel.target)}" style="width:auto"> ${escapeHtml(channel.type)}: ${escapeHtml(channel.target)}</label>`).join('');detail.innerHTML=`<div class="row" style="justify-content:space-between"><h3>${escapeHtml(record.job_id)}</h3><span class="muted">${escapeHtml(record.status)}</span></div><p class="muted">${escapeHtml(record.started_at)}</p><pre class="log-view history-content"></pre><h3>다시 전송할 채널</h3><div class="row history-channels">${channelInputs||'<span class="muted">사용 가능한 채널이 없습니다.</span>'}</div><button id="history-dispatch" type="button" onclick="redispatchHistory('${record.id}')">선택 채널로 다시 전송</button><p id="history-dispatch-result" class="muted"></p>`;detail.querySelector('pre').textContent=record.content||record.error_message||'저장된 응답이 없습니다.'}catch(error){detail.textContent='상세 이력을 불러오지 못했습니다: '+error.message}};
 window.redispatchHistory=async function(id){const result=$('#history-dispatch-result'),button=$('#history-dispatch'),channels=[...document.querySelectorAll('.history-channel:checked')].map(input=>({type:input.dataset.type,target:input.dataset.target}));if(!channels.length){result.textContent='전송할 채널을 하나 이상 선택하세요.';return}button.disabled=true;result.textContent='저장된 응답을 전송 중입니다…';try{const response=await api('/api/executions/'+encodeURIComponent(id)+'/dispatch',{method:'POST',body:JSON.stringify({channels})});result.textContent=`전송 성공: ${response.successful_targets.join(', ')||'없음'}${response.failed_targets.length?' · 실패: '+response.failed_targets.join(', '):''}`}catch(error){result.textContent='재전송 실패: '+error.message}finally{button.disabled=false}};
-</script></body></html>
+</script><script>
+/* Visual schedule controls. Cron remains the persisted scheduler format. */
+const scheduleDays=[['mon','월'],['tue','화'],['wed','수'],['thu','목'],['fri','금'],['sat','토'],['sun','일']];
+const scheduleDaySet=new Set(scheduleDays.map(([day])=>day));
+const cronDayNames=['mon','tue','wed','thu','fri','sat','sun'];
+function parseScheduleCron(cron){
+  const parts=(cron||'').trim().split(/\s+/);
+  const fallback={hour:'9',minute:'0',days:scheduleDays.map(([day])=>day),supported:false};
+  if(parts.length!==5||parts[2]!=='*'||parts[3]!=='*'||!/^\d{1,2}$/.test(parts[0])||!/^\d{1,2}$/.test(parts[1]))return fallback;
+  const minute=Number(parts[0]),hour=Number(parts[1]);
+  if(minute>59||hour>23)return fallback;
+  const tokens=parts[4]==='*'?cronDayNames:parts[4].split(',').flatMap(token=>{
+    if(scheduleDaySet.has(token))return [token];
+    if(/^\d$/.test(token)&&Number(token)<7)return [cronDayNames[Number(token)]];
+    const range=token.match(/^([0-6])-([0-6])$/); if(!range)return [];
+    const start=Number(range[1]),end=Number(range[2]); return start<=end?cronDayNames.slice(start,end+1):[];
+  });
+  if(!tokens.length||(parts[4]!=='*'&&tokens.length!==parts[4].split(',').reduce((sum,token)=>sum+(token.includes('-')?Number(token[2])-Number(token[0])+1:1),0)))return fallback;
+  return {hour:String(hour),minute:String(minute),days:[...new Set(tokens)],supported:true};
+}
+function selectedParentDays(){return [...document.querySelectorAll('#schedule-picker input:checked')].map(input=>input.value)}
+function cronFromSchedulePicker(){const days=selectedParentDays();return `${$('#schedule-minute').value} ${$('#schedule-hour').value} * * ${days.join(',')}`}
+function mountSchedulePicker(){
+  const cron=$('#cron');if(!cron||$('#schedule-picker'))return;
+  const field=cron.closest('div'),state=parseScheduleCron(cron.value);if(!field)return;
+  field.hidden=true;
+  const picker=document.createElement('div');picker.id='schedule-picker';picker.className='wide';
+  picker.innerHTML=`<label>실행 일정</label><div class="schedule-picker-row"><div><span class="muted">시간</span><div class="row"><select id="schedule-hour">${Array.from({length:24},(_,n)=>`<option value="${n}" ${Number(state.hour)===n?'selected':''}>${String(n).padStart(2,'0')}시</option>`).join('')}</select><select id="schedule-minute">${Array.from({length:60},(_,n)=>`<option value="${n}" ${Number(state.minute)===n?'selected':''}>${String(n).padStart(2,'0')}분</option>`).join('')}</select></div></div><div><span class="muted">반복 요일</span><div class="weekday-checks">${scheduleDays.map(([day,label])=>`<label><input type="checkbox" value="${day}" ${state.days.includes(day)?'checked':''}> ${label}</label>`).join('')}</div></div></div>${state.supported?'':'<p class="muted schedule-warning">기존 고급 Cron 표현식은 일정 선택기로 변환할 수 없습니다. 저장하면 여기서 선택한 일정으로 바뀝니다.</p>'}`;
+  field.insertAdjacentElement('afterend',picker);
+  picker.addEventListener('change',()=>{cron.value=cronFromSchedulePicker();refreshResearchDayChoices()});
+}
+function taskDaysForCard(index){
+  const task=researchTasksUi[index]||{};
+  const selected=task.days_of_week?.filter(day=>selectedParentDays().includes(day));
+  return selected?.length?selected:selectedParentDays();
+}
+function decorateResearchDayChoices(force=false){
+  const available=selectedParentDays();
+  document.querySelectorAll('#research-task-list .settings-group').forEach((card,index)=>{
+    let control=card.querySelector('.research-days-control');if(control&&!force)return;if(control)control.remove();
+    const cols=card.querySelector('.cols');if(!cols)return;
+    const selected=taskDaysForCard(index);
+    control=document.createElement('div');control.className='wide research-days-control';
+    control.innerHTML=`<label>수행 요일 <span class="muted">(상위 작업에서 선택한 요일만 선택 가능)</span></label><div class="weekday-checks">${available.map(day=>`<label><input class="research-day" type="checkbox" value="${day}" ${selected.includes(day)?'checked':''}> ${scheduleDays.find(([id])=>id===day)?.[1]||day}</label>`).join('')}</div>`;
+    cols.append(control);
+  });
+}
+function refreshResearchDayChoices(){
+  if(!$('#research-task-list'))return;
+  researchTasksUi=collectResearchTasks();
+  decorateResearchDayChoices(true);
+}
+const collectResearchTasksBeforeDays=collectResearchTasks;
+collectResearchTasks=function(){const cards=[...document.querySelectorAll('#research-task-list .settings-group')];return collectResearchTasksBeforeDays().map((task,index)=>{const card=cards[index];return {...task,days_of_week:card?[...card.querySelectorAll('.research-day:checked')].map(input=>input.value):(task.days_of_week||selectedParentDays())}})};
+const saveJobBeforeSchedulePicker=saveJob;
+saveJob=async function(){
+  const cron=$('#cron');
+  if(cron&&$('#schedule-picker')){
+    if(!selectedParentDays().length){$('#notice').textContent='상위 작업의 수행 요일을 하나 이상 선택하세요.';$('#notice').style.color='#b21f2d';return false}
+    cron.value=cronFromSchedulePicker();
+  }
+  return saveJobBeforeSchedulePicker();
+};
+new MutationObserver(()=>{mountSchedulePicker();decorateResearchDayChoices()}).observe(document.body,{childList:true,subtree:true});
+mountSchedulePicker();decorateResearchDayChoices();
+</script><style>
+.schedule-picker-row{display:flex;align-items:end;gap:26px;flex-wrap:wrap;padding:12px 14px;border:1px solid #dce3ea;border-radius:9px;background:#f9fbfd}.schedule-picker-row .row select{width:92px}.weekday-checks{display:flex;gap:10px;flex-wrap:wrap;margin-top:6px}.weekday-checks label{display:flex;align-items:center;gap:3px;margin:0;font-weight:500}.weekday-checks input{width:auto}.schedule-warning{margin:7px 0 0;color:#926000}.research-days-control{padding-top:2px}
+</style></body></html>

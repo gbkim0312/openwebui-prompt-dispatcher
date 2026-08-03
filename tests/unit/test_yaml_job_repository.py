@@ -57,3 +57,34 @@ research:
 
     assert repository.errors == []
     assert repository.find_all()[0].research_tasks[0].id == "mobility-ai"
+
+
+def test_research_task_weekdays_are_loaded(tmp_path) -> None:
+    (tmp_path / "weekdays.job.yaml").write_text(
+        """\
+version: 1
+id: weekdays
+schedule:
+  cron: "0 7 * * 0,2,4"
+  timezone: Asia/Seoul
+openwebui:
+  model: test-model
+prompt:
+  text: hello
+delivery:
+  channels:
+    - type: fake
+      target: one
+research:
+  tasks:
+    - id: economy
+      query: latest economy news
+      days_of_week: [mon, fri]
+""",
+        encoding="utf-8",
+    )
+
+    repository = YamlJobRepository(tmp_path)
+
+    assert repository.errors == []
+    assert repository.find_all()[0].research_tasks[0].days_of_week == ("mon", "fri")

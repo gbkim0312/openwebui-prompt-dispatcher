@@ -219,3 +219,68 @@ def test_run_job_skips_disabled_research_task() -> None:
 
     assert result.status == ExecutionStatus.SUCCESS
     assert len(client.requests) == 1
+
+
+def test_run_job_skips_research_not_scheduled_for_today() -> None:
+    job = Job(
+        "briefing",
+        "Briefing",
+        True,
+        Schedule("0 7 * * *", "UTC"),
+        OpenWebUiOptions("model"),
+        PromptDefinition(text="최종 브리핑"),
+        (ChannelDestination("fake", "one"),),
+        research_tasks=(
+            ResearchTask("economy", "경제", "오늘 경제 뉴스", days_of_week=("fri",)),
+        ),
+    )
+    client = FakeOpenWebUiClient("최종 결과")
+
+    result = RunJob(
+        InMemoryJobRepository([job]),
+        FakePromptLoader(),
+        JinjaTemplateRenderer(),
+        client,
+        InMemoryExecutionRepository(),
+        ChannelResolver([FakeMessageChannel()]),
+        FakeClock(datetime(2026, 1, 1, tzinfo=UTC)),  # Thursday
+    ).execute(RunJobCommand("briefing"))
+
+    assert result.status == ExecutionStatus.SUCCESS
+    assert len(client.requests) == 1
+
+
+def test_run_job_omits_weekday_skipped_research_from_combined_context() -> None:
+    class FakeTavily:
+        def search(self, *_: object) -> tuple[tuple[str, str, str], ...]:
+            return (("기사", "https://example.com", "요약"),)
+
+    job = Job(
+        "briefing",
+        "Briefing",
+        True,
+        Schedule("0 7 * * *", "UTC"),
+        OpenWebUiOptions("model"),
+        PromptDefinition(text="{{ research_context }}"),
+        (ChannelDestination("fake", "one"),),
+        research_tasks=(
+            ResearchTask("skipped", "건너뜀", "skip", days_of_week=("fri",)),
+            ResearchTask("run", "실행", "run", days_of_week=("thu",)),
+        ),
+    )
+    client = FakeOpenWebUiClient("요약 결과")
+
+    result = RunJob(
+        InMemoryJobRepository([job]),
+        FakePromptLoader(),
+        JinjaTemplateRenderer(),
+        client,
+        InMemoryExecutionRepository(),
+        ChannelResolver([FakeMessageChannel()]),
+        FakeClock(datetime(2026, 1, 1, tzinfo=UTC)),  # Thursday
+        tavily=cast(TavilySearch, FakeTavily()),
+    ).execute(RunJobCommand("briefing"))
+
+    assert result.status == ExecutionStatus.SUCCESS
+    assert len(client.requests) == 2
+    assert "요약 결과" in client.requests[-1].prompt

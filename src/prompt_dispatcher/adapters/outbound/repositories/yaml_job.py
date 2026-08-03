@@ -138,6 +138,14 @@ class YamlJobRepository:
             raise JobValidationError("research task search_depth is invalid")
         if not 1 <= max_results <= 20:
             raise JobValidationError("research task max_results must be between 1 and 20")
+        days_of_week = tuple(str(value).lower() for value in raw.get("days_of_week", []))
+        valid_days = {"mon", "tue", "wed", "thu", "fri", "sat", "sun"}
+        if len(set(days_of_week)) != len(days_of_week) or any(
+            day not in valid_days for day in days_of_week
+        ):
+            raise JobValidationError(
+                "research task days_of_week must contain unique values from mon through sun"
+            )
         return ResearchTask(
             task_id,
             str(raw.get("name") or task_id),
@@ -151,6 +159,7 @@ class YamlJobRepository:
             tuple(str(value) for value in raw.get("exclude_domains", [])),
             str(raw["model"]) if raw.get("model") else None,
             bool(raw.get("enabled", True)),
+            days_of_week,
         )
 
     def find_all(self) -> list[Job]:
