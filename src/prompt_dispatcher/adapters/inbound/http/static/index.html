@@ -107,7 +107,7 @@ bindSearchControl=function(prefix){const prepared=prepareSearchPanel(prefix);if(
 function hydrateSearchControls(){for(const prefix of ['job','instant']){const control=$('#'+prefix+'-search-control');if(control&&!control.dataset.searchPanelReady)bindSearchControl(prefix)}}
 new MutationObserver(hydrateSearchControls).observe(document.body,{childList:true,subtree:true});
 hydrateSearchControls();
-function tidyResearchSection(){const form=$('#research-form'),header=form?.querySelector('.research-section-header > div'),toggle=$('#research-use-parent-model');if(!header||!toggle||toggle.parentElement===header)return;const hint=toggle.parentElement?.nextElementSibling;header.append(toggle);if(hint?.matches('p'))header.append(hint)}
+function tidyResearchSection(){const form=$('#research-form'),header=form?.querySelector('.research-section-header > div'),toggle=$('#research-use-parent-model'),control=toggle?.closest('label');if(!header||!toggle||!control||header.contains(control))return;const hint=control.nextElementSibling;control.classList.add('research-parent-model-control');header.append(control);if(hint?.matches('p')){hint.classList.add('research-parent-model-hint');header.append(hint)}}
 new MutationObserver(tidyResearchSection).observe(document.body,{childList:true,subtree:true});
 tidyResearchSection();
 </script><style>
@@ -141,6 +141,8 @@ decorateResearchActivation();addResearchBulkControls();
 #research-task-list .research-inactive{background:#eef1f4;border-style:dashed;opacity:.62;filter:grayscale(.7)}
 #research-task-list .research-inactive h3{text-decoration:line-through}
 .research-bulk-controls{margin-left:auto}
+.research-parent-model-control{display:flex;align-items:center;gap:7px;width:max-content;margin-top:12px;font-weight:600;color:#1c2733}
+.research-parent-model-hint{margin-top:4px!important}
 </style><script>
 /* Connection settings renderer kept separate so newly added transports stay grouped clearly. */
 sensitiveSettings.add('SMTP_PASSWORD');
