@@ -100,6 +100,13 @@ class RunJob:
                     )
                     if not task_model:
                         raise ValueError(f"Research task model is required: {task.id}")
+                    logger.info(
+                        "event=research_task_started job_id=%s execution_id=%s task_id=%s model=%s",
+                        job.id,
+                        execution.id,
+                        task.id,
+                        task_model,
+                    )
                     search_query = self._renderer.render(task.query, variables)
                     summary_instruction = self._renderer.render(
                         task.summary_prompt
