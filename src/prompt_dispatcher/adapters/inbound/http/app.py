@@ -402,11 +402,31 @@ def create_app(container: ApplicationContainer) -> FastAPI:
 
     @app.post("/api/settings/test/{channel_type}")
     def test_connection(
-        channel_type: Literal["telegram", "nextcloud_talk", "email", "weather"]
+        channel_type: Literal["telegram", "nextcloud_talk", "email", "weather", "location"]
     ) -> dict[str, str]:
         """Send a short real message using the settings currently saved by the UI."""
         values = store.read_values()
         settings = Settings.from_environment()
+        if channel_type == "location":
+            try:
+                matches = KakaoGeocoder(settings.kakao_rest_api_key).search("서울특별시 영등포구")
+                if not matches:
+                    raise ValueError("지역 검색 결과가 없습니다.")
+            except Exception as error:
+                detail = str(error).replace("\n", " ")
+                logger.warning(
+                    "event=location_search_test_failed error_type=%s error_message=%s",
+                    type(error).__name__,
+                    detail,
+                )
+                raise HTTPException(422, detail) from error
+            first = matches[0]
+            logger.info("event=location_search_test_success result=%s", first["name"])
+            return {
+                "status": "ok",
+                "message": "카카오 지역 검색 연결에 성공했습니다.",
+                "preview": f"검색 결과: {first['name']} ({first['latitude']}, {first['longitude']})",
+            }
         if channel_type == "weather":
             try:
                 weather = (
