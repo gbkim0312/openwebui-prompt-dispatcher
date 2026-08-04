@@ -16,7 +16,10 @@ from prompt_dispatcher.application.ports import (
 )
 from prompt_dispatcher.application.ports.model_catalog import ModelCatalogPort
 from prompt_dispatcher.application.services.channel_resolver import ChannelResolver
-from prompt_dispatcher.application.services.tavily_context import enrich_with_tavily
+from prompt_dispatcher.application.services.tavily_context import (
+    enrich_with_tavily,
+    format_tavily_results,
+)
 from prompt_dispatcher.domain.delivery import DeliveryResult, OutboundMessage
 from prompt_dispatcher.domain.enums import DeliveryStatus, ExecutionStatus
 from prompt_dispatcher.domain.errors import JobNotFoundError
@@ -133,41 +136,30 @@ class RunJob:
                     )
                     continue
                 try:
-                    task_model = (
-                        job.openwebui_options.model if job.research_use_parent_model else task.model
-                    )
-                    if not task_model:
-                        raise ValueError(f"Research task model is required: {task.id}")
                     logger.info(
-                        "event=research_task_started job_id=%s execution_id=%s task_id=%s model=%s",
+                        "event=research_task_started job_id=%s execution_id=%s task_id=%s use_prompt=%s",
                         job.id,
                         execution.id,
                         task.id,
-                        task_model,
-                    )
-                    summary_instruction = self._renderer.render(
-                        task.summary_prompt
-                        or f"{task.name} 관련 검색 결과를 한국어로 핵심 사실과 출처 중심으로 요약하세요.",
-                        variables,
+                        task.use_prompt,
                     )
                     weather_context: list[str] = []
                     for source in task.weather_sources:
                         if self._weather is None:
                             raise ValueError("Weather service is not configured")
                         weather_context.append(self._weather.fetch(source))
-                    research_prompt = summary_instruction
+                    source_context: list[str] = []
                     if weather_context:
-                        research_prompt += "\n\n--- 구조화 날씨 데이터 ---\n" + "\n\n".join(
-                            weather_context
+                        source_context.append(
+                            "--- 구조화 날씨 데이터 ---\n" + "\n\n".join(weather_context)
                         )
                     if task.use_web_search:
                         search_query = self._renderer.render(task.query, variables)
-                        research_prompt, _ = enrich_with_tavily(
-                            research_prompt,
-                            ("web_search_with_tavily",),
-                            self._tavily,
-                            task.time_range,
+                        if self._tavily is None:
+                            raise ValueError("TAVILY_API_KEY is required for Web Search with Tavily")
+                        results = self._tavily.search(
                             search_query,
+                            task.time_range,
                             task.topic,
                             task.search_depth,
                             task.max_results,
@@ -175,10 +167,27 @@ class RunJob:
                             task.exclude_domains,
                             task.include_raw_content,
                         )
-                    response = self._openwebui.generate(OpenWebUiRequest(task_model, research_prompt))
-                    if not response.content.strip():
-                        raise ValueError(f"Research task returned empty content: {task.id}")
-                    research_results[task.id] = response.content
+                        source_context.append("--- Tavily 검색 결과 ---\n" + format_tavily_results(results))
+                    if task.use_prompt:
+                        task_model = (
+                            job.openwebui_options.model
+                            if job.research_use_parent_model
+                            else task.model
+                        )
+                        if not task_model:
+                            raise ValueError(f"Research task model is required: {task.id}")
+                        summary_instruction = self._renderer.render(
+                            task.summary_prompt
+                            or f"{task.name} 관련 검색 결과를 한국어로 핵심 사실과 출처 중심으로 요약하세요.",
+                            variables,
+                        )
+                        research_prompt = summary_instruction + "\n\n" + "\n\n".join(source_context)
+                        response = self._openwebui.generate(OpenWebUiRequest(task_model, research_prompt))
+                        if not response.content.strip():
+                            raise ValueError(f"Research task returned empty content: {task.id}")
+                        research_results[task.id] = response.content
+                    else:
+                        research_results[task.id] = "\n\n".join(source_context)
                 except Exception as error:
                     research_failures[task.id] = type(error).__name__
                     research_results[task.id] = (

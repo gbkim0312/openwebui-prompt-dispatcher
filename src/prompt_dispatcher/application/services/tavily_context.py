@@ -3,6 +3,13 @@ from prompt_dispatcher.adapters.outbound.search.tavily import TavilySearch
 TAVILY_TOOL_ID = "web_search_with_tavily"
 
 
+def format_tavily_results(results: tuple[tuple[str, str, str], ...]) -> str:
+    return "\n\n".join(
+        f"[{index}] {title}\nURL: {url}\n내용: {content}"
+        for index, (title, url, content) in enumerate(results, start=1)
+    )
+
+
 def enrich_with_tavily(
     prompt: str,
     tool_ids: tuple[str, ...],
@@ -30,10 +37,7 @@ def enrich_with_tavily(
         exclude_domains,
         include_raw_content,
     )
-    sources = "\n\n".join(
-        f"[{index}] {title}\nURL: {url}\n내용: {content}"
-        for index, (title, url, content) in enumerate(results, start=1)
-    )
+    sources = format_tavily_results(results)
     enriched = (
         f"{prompt}\n\n아래는 Tavily가 수집한 최신 검색 결과입니다. "
         f"최근 { {'day': '1일', 'week': '7일', 'month': '1개월', 'year': '1년'}[time_range] } "

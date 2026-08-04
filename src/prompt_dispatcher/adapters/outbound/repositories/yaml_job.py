@@ -195,6 +195,7 @@ class YamlJobRepository:
             str(raw.get("name") or task_id),
             query,
             str(raw.get("summary_prompt", "")),
+            bool(raw.get("use_prompt", True)),
             time_range,
             topic,
             depth,

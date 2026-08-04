@@ -359,3 +359,51 @@ def test_weather_only_research_does_not_require_tavily() -> None:
     assert result.status == ExecutionStatus.SUCCESS
     assert len(client.requests) == 2
     assert "구조화 날씨 데이터" in client.requests[0].prompt
+
+
+def test_research_can_pass_raw_search_and_weather_data_to_final_prompt() -> None:
+    class FakeWeather:
+        def fetch(self, _: WeatherSource) -> str:
+            return "서울 날씨\n현재: 맑음"
+
+    class FakeTavily:
+        def search(self, query: str, *_: object) -> tuple[tuple[str, str, str], ...]:
+            assert query == "서울 날씨 뉴스"
+            return (("날씨 뉴스", "https://example.com/weather", "맑은 날씨"),)
+
+    job = Job(
+        "raw-research",
+        "Raw research",
+        True,
+        Schedule("0 7 * * *", "UTC"),
+        OpenWebUiOptions("final-model"),
+        PromptDefinition(text="최종 자료\n{{ research.weather_raw }}"),
+        (ChannelDestination("fake", "one"),),
+        research_tasks=(
+            ResearchTask(
+                "weather_raw",
+                "날씨 원본",
+                "서울 날씨 뉴스",
+                use_prompt=False,
+                weather_sources=(WeatherSource("seoul", "서울", 37.5665, 126.9780),),
+            ),
+        ),
+    )
+    client = FakeOpenWebUiClient("최종 결과")
+
+    result = RunJob(
+        InMemoryJobRepository([job]),
+        FakePromptLoader(),
+        JinjaTemplateRenderer(),
+        client,
+        InMemoryExecutionRepository(),
+        ChannelResolver([FakeMessageChannel()]),
+        FakeClock(datetime(2026, 1, 1, tzinfo=UTC)),
+        tavily=FakeTavily(),  # type: ignore[arg-type]
+        weather=FakeWeather(),  # type: ignore[arg-type]
+    ).execute(RunJobCommand("raw-research"))
+
+    assert result.status == ExecutionStatus.SUCCESS
+    assert len(client.requests) == 1
+    assert "--- Tavily 검색 결과 ---" in client.requests[0].prompt
+    assert "--- 구조화 날씨 데이터 ---" in client.requests[0].prompt

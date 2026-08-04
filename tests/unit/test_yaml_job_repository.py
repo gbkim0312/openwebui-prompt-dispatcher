@@ -115,6 +115,7 @@ def test_weather_only_research_task_is_loaded(tmp_path) -> None:
             - id: today_weather
               name: 오늘 날씨
               use_web_search: false
+              use_prompt: false
               weather_sources:
                 - id: seoul
                   name: 서울
@@ -129,4 +130,5 @@ def test_weather_only_research_task_is_loaded(tmp_path) -> None:
     assert repository.errors == []
     task = repository.find_all()[0].research_tasks[0]
     assert task.use_web_search is False
+    assert task.use_prompt is False
     assert task.weather_sources[0].id == "seoul"

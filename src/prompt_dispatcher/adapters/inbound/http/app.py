@@ -203,6 +203,7 @@ def create_app(container: ApplicationContainer) -> FastAPI:
                             "name": task.name,
                             "query": task.query,
                             "summary_prompt": task.summary_prompt,
+                            "use_prompt": task.use_prompt,
                             "time_range": task.time_range,
                             "topic": task.topic,
                             "search_depth": task.search_depth,

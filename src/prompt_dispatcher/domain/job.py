@@ -53,6 +53,7 @@ class ResearchTask:
     name: str
     query: str
     summary_prompt: str = ""
+    use_prompt: bool = True
     time_range: str = "day"
     topic: str = "news"
     search_depth: str = "basic"
