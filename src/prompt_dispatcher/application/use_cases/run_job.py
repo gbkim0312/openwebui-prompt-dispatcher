@@ -64,16 +64,6 @@ class RunJob:
         self._weather = weather
 
     def execute(self, command: RunJobCommand) -> RunJobResult:
-        available_models: set[str] | None = None
-        if self._model_catalog is not None:
-            try:
-                self._model_catalog.refresh()
-                available_models = set(self._model_catalog.list_models())
-            except Exception:
-                logger.warning(
-                    "event=model_preflight_failed job_id=%s reason=model_catalog_unavailable",
-                    command.job_id,
-                )
         job = self._jobs.find_by_id(command.job_id)
         if job is None:
             raise JobNotFoundError(f"Job not found: {command.job_id}")
@@ -93,7 +83,7 @@ class RunJob:
             return RunJobResult(None, ExecutionStatus.SKIPPED, "Duplicate scheduled execution")
         try:
             if not command.skip_openwebui:
-                self._assert_models_available(job, scheduled, available_models)
+                self._assert_models_available_with_retry(job, scheduled)
             template = self._prompts.load(job.prompt_definition)
             variables = dict(job.prompt_definition.variables) | {
                 "job_id": job.id,
@@ -354,16 +344,50 @@ class RunJob:
         )
         return RunJobResult(execution.id, status)
 
-    def _assert_models_available(
-        self, job: Job, scheduled_time: datetime, available_models: set[str] | None
-    ) -> None:
+    def _assert_models_available_with_retry(self, job: Job, scheduled_time: datetime) -> None:
         """Fail before paid external research when the selected Open WebUI model is unavailable."""
         if self._model_catalog is None:
             return
-        if available_models is None:
-            raise OpenWebUiError(
-                "Open WebUI model availability could not be verified; Tavily search was not started"
-            )
+        for attempt in range(job.execution_policy.retry_count + 1):
+            try:
+                self._model_catalog.refresh()
+                self._assert_models_available(
+                    job, scheduled_time, set(self._model_catalog.list_models())
+                )
+                return
+            except OpenWebUiError as error:
+                if attempt >= job.execution_policy.retry_count:
+                    raise
+                delay = max(1, job.execution_policy.retry_delay_seconds)
+                logger.warning(
+                    "event=model_preflight_retry job_id=%s attempt=%s delay_seconds=%s error=%s",
+                    job.id,
+                    attempt + 1,
+                    delay,
+                    str(error).replace("\n", " "),
+                )
+                time.sleep(delay)
+            except Exception as error:
+                if attempt >= job.execution_policy.retry_count:
+                    raise OpenWebUiError(
+                        "Open WebUI model availability could not be verified; "
+                        "Tavily search was not started"
+                    ) from error
+                delay = max(1, job.execution_policy.retry_delay_seconds)
+                logger.warning(
+                    "event=model_preflight_retry job_id=%s attempt=%s delay_seconds=%s error_type=%s",
+                    job.id,
+                    attempt + 1,
+                    delay,
+                    type(error).__name__,
+                )
+                time.sleep(delay)
+
+    @staticmethod
+    def _assert_models_available(
+        job: Job, scheduled_time: datetime, available_models: set[str]
+    ) -> None:
+        """Validate all models that can run in this scheduled execution."""
 
         current_day = ("mon", "tue", "wed", "thu", "fri", "sat", "sun")[
             scheduled_time.weekday()

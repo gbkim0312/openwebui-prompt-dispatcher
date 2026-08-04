@@ -111,6 +111,50 @@ def test_run_job_checks_model_before_tavily_search() -> None:
     assert "Tavily search was not started" in result.message
 
 
+def test_run_job_retries_model_preflight_before_tavily(monkeypatch) -> None:
+    class FlakyCatalog:
+        revision = "test"
+
+        def __init__(self) -> None:
+            self.calls = 0
+
+        def refresh(self) -> bool:
+            self.calls += 1
+            if self.calls == 1:
+                raise RuntimeError("Open WebUI temporarily unavailable")
+            return False
+
+        def list_models(self) -> tuple[str, ...]:
+            return ("model",)
+
+    catalog = FlakyCatalog()
+    job = Job(
+        "preflight-retry",
+        "Preflight retry",
+        True,
+        Schedule("0 7 * * *", "UTC"),
+        OpenWebUiOptions("model"),
+        PromptDefinition(text="hello"),
+        (ChannelDestination("fake", "one"),),
+        execution_policy=ExecutionPolicy(retry_count=1, retry_delay_seconds=1),
+    )
+    monkeypatch.setattr("prompt_dispatcher.application.use_cases.run_job.time.sleep", lambda _: None)
+
+    result = RunJob(
+        InMemoryJobRepository([job]),
+        FakePromptLoader(),
+        JinjaTemplateRenderer(),
+        FakeOpenWebUiClient("answer"),
+        InMemoryExecutionRepository(),
+        ChannelResolver([FakeMessageChannel()]),
+        FakeClock(datetime(2026, 1, 1, tzinfo=UTC)),
+        model_catalog=catalog,
+    ).execute(RunJobCommand("preflight-retry"))
+
+    assert result.status == ExecutionStatus.SUCCESS
+    assert catalog.calls == 2
+
+
 def test_run_job_delivers_and_records_success() -> None:
     job = Job(
         "news",
