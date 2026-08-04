@@ -381,6 +381,36 @@ const collectResearchTasksBeforeInputSources=collectResearchTasks;
 collectResearchTasks=function(){const cards=[...document.querySelectorAll('#research-task-list .settings-group')];return collectResearchTasksBeforeInputSources().map((task,index)=>{const card=cards[index],promptToggle=card?.querySelector('.research-use-prompt'),webToggle=card?.querySelector('.research-use-web'),weatherToggle=card?.querySelector('.research-use-weather'),weather=weatherToggle?.checked;return {...task,use_prompt:promptToggle?promptToggle.checked:task.use_prompt!==false,use_web_search:webToggle?webToggle.checked:task.use_web_search!==false,weather_sources:weather?[{id:card.querySelector('.research-weather-id').value.trim(),name:card.querySelector('.research-weather-name').value.trim(),latitude:Number(card.querySelector('.research-weather-lat').value),longitude:Number(card.querySelector('.research-weather-lon').value),timezone:card.querySelector('.research-weather-timezone').value.trim()||'Asia/Seoul',forecast_days:Number(card.querySelector('.research-weather-days').value)||2,include_current:true,include_daily:true,include_alerts:true,include_weekly:true}]:(weatherToggle?[]:(task.weather_sources||[]))}})};
 new MutationObserver(decorateResearchInputSources).observe(document.body,{childList:true,subtree:true});
 decorateResearchInputSources();
+const seoulWeatherDistricts={
+  '서울 전체':[37.5665,126.9780],'강남구':[37.5172,127.0473],'강동구':[37.5301,127.1238],'강북구':[37.6396,127.0257],
+  '강서구':[37.5509,126.8495],'관악구':[37.4784,126.9516],'광진구':[37.5385,127.0823],'구로구':[37.4954,126.8874],
+  '금천구':[37.4519,126.9020],'노원구':[37.6542,127.0568],'도봉구':[37.6688,127.0471],'동대문구':[37.5744,127.0399],
+  '동작구':[37.5124,126.9393],'마포구':[37.5638,126.9084],'서대문구':[37.5791,126.9368],'서초구':[37.4837,127.0324],
+  '성동구':[37.5635,127.0370],'성북구':[37.5894,127.0167],'송파구':[37.5145,127.1059],'양천구':[37.5170,126.8665],
+  '영등포구':[37.5264,126.8963],'용산구':[37.5326,126.9905],'은평구':[37.6027,126.9291],'종로구':[37.5735,126.9788],
+  '중구':[37.5641,126.9979],'중랑구':[37.6063,127.0927]
+};
+function decorateResearchWeatherLocation(){
+  document.querySelectorAll('.research-weather-fields').forEach(fields=>{
+    if(fields.dataset.locationPickerReady)return;
+    const lat=fields.querySelector('.research-weather-lat'),lon=fields.querySelector('.research-weather-lon'),name=fields.querySelector('.research-weather-name');
+    if(!lat||!lon||!name)return;
+    fields.dataset.locationPickerReady='true';
+    const known=Object.keys(seoulWeatherDistricts).find(district=>name.value.trim()===`서울 ${district}`||name.value.trim()===`서울특별시 ${district}`||name.value.trim()===district)|| (name.value.trim()==='서울'||name.value.trim()==='서울특별시'?'서울 전체':'');
+    const picker=document.createElement('div');picker.className='wide weather-location-picker';
+    picker.innerHTML=`<label>지역 선택</label><div class="cols"><div><label>시·도</label><select class="research-weather-city"><option value="seoul">서울특별시</option><option value="manual">직접 입력</option></select></div><div><label>자치구</label><select class="research-weather-district">${Object.keys(seoulWeatherDistricts).map(district=>`<option value="${district}">${district}</option>`).join('')}</select></div></div>`;
+    const city=picker.querySelector('.research-weather-city'),district=picker.querySelector('.research-weather-district'),latField=lat.closest('div'),lonField=lon.closest('div');
+    if(!known)city.value='manual';else district.value=known;
+    const apply=()=>{
+      const manual=city.value==='manual';district.disabled=manual;latField.hidden=!manual;lonField.hidden=!manual;
+      if(!manual){const [latitude,longitude]=seoulWeatherDistricts[district.value];lat.value=String(latitude);lon.value=String(longitude);name.value=district.value==='서울 전체'?'서울':`서울 ${district.value}`}
+    };
+    city.addEventListener('change',apply);district.addEventListener('change',apply);apply();
+    fields.querySelector('.cols')?.insertBefore(picker,fields.querySelector('.research-weather-id')?.closest('div'));
+  });
+}
+new MutationObserver(decorateResearchWeatherLocation).observe(document.body,{childList:true,subtree:true});
+decorateResearchWeatherLocation();
 let weatherSourcesUi=[];
 const weatherDefault=()=>({id:'seoul',name:'서울',latitude:37.5665,longitude:126.9780,timezone:'Asia/Seoul',include_current:true,include_daily:true,forecast_days:2});
 function renderWeatherSources(){
@@ -431,7 +461,7 @@ window.testJobPrompt=async function(){
 new MutationObserver(addJobUnlockButton).observe(document.body,{childList:true,subtree:true});
 addJobUnlockButton();
 </script><style>
-.research-raw-content{padding-top:2px}.research-raw-content-label{display:flex;align-items:center;gap:7px;margin:0;font-weight:600}.research-raw-content-label input{width:auto;margin:0}.research-input-sources{padding:12px 0;border-top:1px solid #dce3ea}.research-source-options label{display:flex;align-items:center;gap:6px;margin:0;font-weight:600}.research-source-options input{width:auto}.research-weather-fields{margin-top:10px;padding:12px;border-left:3px solid #1565c0;background:#f4f8fc}.weather-sources-header{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:20px 0 8px}.weather-sources-header h3{margin:0}#weather-source-list{display:grid;gap:12px}.weather-source-card{margin:0}.weather-options label{display:flex;align-items:center;gap:6px;margin:0;font-weight:600}.weather-options input{width:auto}
+.research-raw-content{padding-top:2px}.research-raw-content-label{display:flex;align-items:center;gap:7px;margin:0;font-weight:600}.research-raw-content-label input{width:auto;margin:0}.research-input-sources{padding:12px 0;border-top:1px solid #dce3ea}.research-source-options label{display:flex;align-items:center;gap:6px;margin:0;font-weight:600}.research-source-options input{width:auto}.research-weather-fields{margin-top:10px;padding:12px;border-left:3px solid #1565c0;background:#f4f8fc}.weather-location-picker{padding:10px;border:1px solid #d5e2ef;border-radius:8px;background:#fff}.weather-location-picker>label{margin-top:0}.weather-location-picker .cols{margin-top:8px}.weather-sources-header{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:20px 0 8px}.weather-sources-header h3{margin:0}#weather-source-list{display:grid;gap:12px}.weather-source-card{margin:0}.weather-options label{display:flex;align-items:center;gap:6px;margin:0;font-weight:600}.weather-options input{width:auto}
 </style><script>
 function organizeResearchDataSources(){
   for(const card of document.querySelectorAll('#research-task-list .settings-group:not([data-source-layout-ready])')){
