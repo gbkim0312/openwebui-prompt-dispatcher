@@ -104,32 +104,33 @@ python3 -m venv .venv
 
 검색 고급 설정에서는 주제(뉴스·일반·금융), 검색 깊이, 결과 수(1~20), 포함 도메인, 제외 도메인을 설정할 수 있습니다. 기본값은 뉴스·기본 깊이·8개 결과이며, 고급 깊이는 Tavily API 크레딧을 더 사용합니다.
 
-### 날씨 데이터 주입
+### 리서치 데이터 소스: 날씨 API
 
-예약 작업의 **날씨 데이터**에서 위치를 추가하면 Open-Meteo의 현재 날씨와 일별 예보를 프롬프트에 직접 주입합니다. API 키는 필요하지 않습니다. 변수명으로 개별 위치를, `weather_context`로 모든 위치의 결과를 참조합니다.
+리서치 카드에서 기본으로 작성하는 것은 **리서치 프롬프트**입니다. 필요한 자료 수집 방식만 선택하면 해당 설정이 펼쳐집니다.
 
-리서치 카드에서는 **웹 검색(Tavily)**, **날씨 API**, 또는 둘 다를 선택할 수 있습니다. 날씨 API만 선택한 리서치는 검색어 없이 실행되며, 구조화된 날씨 데이터를 하위 LLM이 요약한 뒤 `{{ research.리서치ID }}`로 최상위 프롬프트에 전달합니다.
+- **웹 검색(Tavily)**: 검색어, 기간, 주제, 검색 깊이, 결과 수, 도메인, 원문 콘텐츠 포함 여부를 설정합니다.
+- **날씨 API**: Open-Meteo의 위치·좌표·시간대·예보 일수와 현재/일별 데이터 포함 여부를 설정합니다. API 키는 필요하지 않습니다.
 
-```jinja2
-서울 날씨: {{ weather.seoul }}
+둘 중 하나 또는 둘 다를 선택할 수 있습니다. 날씨 API만 선택한 리서치는 검색어 없이 실행되며, 구조화된 날씨 데이터를 하위 LLM이 리서치 프롬프트에 따라 정리합니다. 최상위 프롬프트에는 해당 결과를 `{{ research.리서치ID }}` 또는 `{{ research_context }}`로 넣으세요.
 
-전체 날씨 정보:
-{{ weather_context }}
-```
-
-YAML로 작성할 때는 다음과 같습니다.
+YAML로 작성할 때는 리서치 작업에 날씨 데이터를 넣습니다.
 
 ```yaml
-context_sources:
-  weather:
-    - id: seoul
-      name: 서울
-      latitude: 37.5665
-      longitude: 126.9780
-      timezone: Asia/Seoul
-      include_current: true
-      include_daily: true
-      forecast_days: 2
+research:
+  tasks:
+    - id: seoul_weather
+      name: 오늘 서울 날씨
+      use_web_search: false
+      summary_prompt: 제공된 날씨 데이터만 사용해 서울 날씨를 요약하세요.
+      weather_sources:
+        - id: seoul
+          name: 서울
+          latitude: 37.5665
+          longitude: 126.9780
+          timezone: Asia/Seoul
+          include_current: true
+          include_daily: true
+          forecast_days: 2
 ```
 
 ### 상위 작업: 여러 리서치 요약을 하나의 메시지로 합치기
