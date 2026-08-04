@@ -15,8 +15,10 @@ from prompt_dispatcher.application.dto.commands import RunJobCommand
 from prompt_dispatcher.application.services.channel_resolver import ChannelResolver
 from prompt_dispatcher.application.use_cases.run_job import RunJob
 from prompt_dispatcher.domain.enums import ExecutionStatus
+from prompt_dispatcher.domain.errors import OpenWebUiError
 from prompt_dispatcher.domain.job import (
     ChannelDestination,
+    ExecutionPolicy,
     Job,
     OpenWebUiOptions,
     OpenWebUiResponse,
@@ -25,6 +27,48 @@ from prompt_dispatcher.domain.job import (
     Schedule,
     WeatherSource,
 )
+
+
+def test_run_job_retries_transient_openwebui_generation_error(monkeypatch) -> None:
+    class FlakyClient:
+        def __init__(self) -> None:
+            self.calls = 0
+
+        def generate(self, request):  # type: ignore[no-untyped-def]
+            self.calls += 1
+            if self.calls == 1:
+                raise OpenWebUiError("Open WebUI failed (HTTP 429): rate limited")
+            return OpenWebUiResponse("answer", request.model)
+
+    job = Job(
+        "retry-job",
+        "Retry job",
+        True,
+        Schedule("0 7 * * *", "UTC"),
+        OpenWebUiOptions("model"),
+        PromptDefinition(text="hello"),
+        (ChannelDestination("fake", "one"),),
+        execution_policy=ExecutionPolicy(retry_count=1, retry_delay_seconds=1),
+    )
+    client = FlakyClient()
+    monkeypatch.setattr("prompt_dispatcher.application.use_cases.run_job.time.sleep", lambda _: None)
+
+    result = RunJob(
+        InMemoryJobRepository([job]),
+        FakePromptLoader(),
+        JinjaTemplateRenderer(),
+        client,  # type: ignore[arg-type]
+        InMemoryExecutionRepository(),
+        ChannelResolver([FakeMessageChannel()]),
+        FakeClock(datetime(2026, 1, 1, tzinfo=UTC)),
+    ).execute(RunJobCommand("retry-job"))
+
+    assert result.status == ExecutionStatus.SUCCESS
+    assert client.calls == 2
+
+
+def test_run_job_does_not_retry_non_transient_bad_request() -> None:
+    assert not RunJob._is_retryable_openwebui_error(OpenWebUiError("HTTP 400: invalid request"))
 
 
 def test_run_job_delivers_and_records_success() -> None:

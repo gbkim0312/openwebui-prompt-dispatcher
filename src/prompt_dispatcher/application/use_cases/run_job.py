@@ -1,4 +1,6 @@
 import logging
+import re
+import time
 from datetime import timedelta
 from uuid import uuid4
 
@@ -23,13 +25,13 @@ from prompt_dispatcher.application.services.tavily_context import (
 )
 from prompt_dispatcher.domain.delivery import DeliveryResult, OutboundMessage
 from prompt_dispatcher.domain.enums import DeliveryStatus, ExecutionStatus
-from prompt_dispatcher.domain.errors import JobNotFoundError
+from prompt_dispatcher.domain.errors import JobNotFoundError, OpenWebUiError
 from prompt_dispatcher.domain.execution import (
     Execution,
     ExecutionResult,
     determine_execution_status,
 )
-from prompt_dispatcher.domain.job import OpenWebUiRequest
+from prompt_dispatcher.domain.job import Job, OpenWebUiRequest, OpenWebUiResponse
 
 logger = logging.getLogger(__name__)
 
@@ -183,7 +185,9 @@ class RunJob:
                             variables,
                         )
                         research_prompt = summary_instruction + "\n\n" + "\n\n".join(source_context)
-                        response = self._openwebui.generate(OpenWebUiRequest(task_model, research_prompt))
+                        response = self._generate_with_retry(
+                            OpenWebUiRequest(task_model, research_prompt), job
+                        )
                         if not response.content.strip():
                             raise ValueError(f"Research task returned empty content: {task.id}")
                         research_results[task.id] = response.content
@@ -234,7 +238,7 @@ class RunJob:
                     job.openwebui_options.web_search_include_domains,
                     job.openwebui_options.web_search_exclude_domains,
                 )
-                content = self._openwebui.generate(
+                content = self._generate_with_retry(
                     OpenWebUiRequest(
                         job.openwebui_options.model,
                         prompt,
@@ -242,7 +246,8 @@ class RunJob:
                         tool_ids,
                         job.openwebui_options.required_tool_ids,
                         job.openwebui_options.timeout_seconds,
-                    )
+                    ),
+                    job,
                 ).content
             if not content.strip():
                 raise ValueError("Open WebUI returned empty content")
@@ -341,3 +346,33 @@ class RunJob:
             "event=job_completed job_id=%s execution_id=%s status=%s", job.id, execution.id, status
         )
         return RunJobResult(execution.id, status)
+
+    def _generate_with_retry(self, request: OpenWebUiRequest, job: Job) -> OpenWebUiResponse:
+        policy = job.execution_policy
+        for attempt in range(policy.retry_count + 1):
+            try:
+                return self._openwebui.generate(request)
+            except OpenWebUiError as error:
+                if attempt >= policy.retry_count or not self._is_retryable_openwebui_error(error):
+                    raise
+                delay = max(1, policy.retry_delay_seconds)
+                logger.warning(
+                    "event=openwebui_generation_retry job_id=%s model=%s attempt=%s delay_seconds=%s error=%s",
+                    job.id,
+                    request.model,
+                    attempt + 1,
+                    delay,
+                    str(error).replace("\n", " "),
+                )
+                time.sleep(delay)
+        raise AssertionError("unreachable")
+
+    @staticmethod
+    def _is_retryable_openwebui_error(error: OpenWebUiError) -> bool:
+        message = str(error).lower()
+        return (
+            "model not found" in message
+            or "timed out" in message
+            or "connection" in message
+            or re.search(r"http (408|409|425|429|5\d\d)", message) is not None
+        )
