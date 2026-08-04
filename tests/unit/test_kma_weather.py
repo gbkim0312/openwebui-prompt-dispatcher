@@ -51,3 +51,43 @@ def test_kma_weather_formats_current_and_daily_forecast() -> None:
     assert "현재 실황 (2026-08-04 06:00 발표): 강수 없음; 기온 29.7°C" in report
     assert "일일 예보 (2026-08-04): 날씨 상태 맑음; 최저 24°C, 최고 35°C; 일 최대 강수확률 10%" in report
     assert "일일 예보 (2026-08-05): 날씨 상태 비;" in report
+
+
+def test_kma_weather_can_include_alerts_and_weekly_forecast() -> None:
+    def response(items: list[dict[str, object]]) -> httpx.Response:
+        return httpx.Response(
+            200,
+            json={"response": {"header": {"resultCode": "00"}, "body": {"items": {"item": items}}}},
+        )
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path.endswith("getWthrWrnList"):
+            return response([{"title": "서울특별시 호우주의보", "tmFc": "202608040700"}])
+        if request.url.path.endswith("getMidLandFcst"):
+            return response([{"wf3Am": "맑음", "rnSt3Am": 10}])
+        if request.url.path.endswith("getMidTa"):
+            return response([{"taMin3": 24, "taMax3": 33}])
+        return response([])
+
+    weather = KmaWeather(
+        "service-key",
+        httpx.Client(transport=httpx.MockTransport(handler)),
+        now=lambda: datetime(2026, 8, 4, 7, 30, tzinfo=ZoneInfo("Asia/Seoul")),
+    )
+
+    report = weather.fetch(
+        WeatherSource(
+            "seoul",
+            "서울",
+            37.5665,
+            126.9780,
+            include_current=False,
+            include_daily=False,
+            include_alerts=True,
+            include_weekly=True,
+        )
+    )
+
+    assert "기상특보 (서울 관할): 서울특별시 호우주의보 (202608040700)" in report
+    assert "주간 예보 (서울, 202608040600 발표):" in report
+    assert "3일 후: 오전 맑음, 강수확률 10%, 최저 24°C, 최고 33°C" in report

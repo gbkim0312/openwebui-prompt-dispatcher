@@ -19,6 +19,8 @@ class KmaWeather:
     """
 
     _base_url: ClassVar[str] = "https://apis.data.go.kr/1360000/VilageFcstInfoService_2.0"
+    _warning_url: ClassVar[str] = "https://apis.data.go.kr/1360000/WthrWrnInfoService/getWthrWrnList"
+    _mid_base_url: ClassVar[str] = "https://apis.data.go.kr/1360000/MidFcstInfoService"
     _portal_url: ClassVar[str] = "https://www.data.go.kr/data/15084084/openapi.do"
     _precipitation_types: ClassVar[dict[int, str]] = {
         0: "없음", 1: "비", 2: "비/눈", 3: "눈", 5: "빗방울", 6: "빗방울/눈날림", 7: "눈날림"
@@ -64,6 +66,16 @@ class KmaWeather:
                     f"최고 {forecast.get('max_temperature', '-')}°C; "
                     f"일 최대 강수확률 {forecast.get('precipitation_probability', '-')}%"
                 )
+        if source.include_alerts:
+            try:
+                lines.extend(self._alerts(now))
+            except Exception as error:
+                lines.append(f"기상특보: 조회 실패 ({type(error).__name__})")
+        if source.include_weekly:
+            try:
+                lines.extend(self._weekly(now))
+            except Exception as error:
+                lines.append(f"주간 예보: 조회 실패 ({type(error).__name__})")
         lines.append(f"기준 시각: {now.isoformat(timespec='minutes')}")
         lines.append(f"출처: 기상청 단기예보 조회서비스 — {self._portal_url}")
         return "\n".join(lines)
@@ -112,23 +124,62 @@ class KmaWeather:
             )
         return forecasts
 
+    def _alerts(self, now: datetime) -> list[str]:
+        items = self._request_endpoint(
+            self._warning_url,
+            {"stnId": 108, "fromTmFc": (now - timedelta(days=1)).strftime("%Y%m%d"), "toTmFc": now.strftime("%Y%m%d")},
+        )
+        if not items:
+            return ["기상특보 (서울 관할): 최근 24시간 발표된 특보 없음"]
+        return [
+            "기상특보 (서울 관할): " + "; ".join(
+                f"{item.get('title', '제목 없음')} ({item.get('tmFc', '발표시각 미제공')})"
+                for item in items[:5]
+            )
+        ]
+
+    def _weekly(self, now: datetime) -> list[str]:
+        base = self._mid_base(now).strftime("%Y%m%d%H%M")
+        land = self._request_endpoint(
+            f"{self._mid_base_url}/getMidLandFcst", {"regId": "11B00000", "tmFc": base}
+        )
+        temperature = self._request_endpoint(
+            f"{self._mid_base_url}/getMidTa", {"regId": "11B10101", "tmFc": base}
+        )
+        if not land or not temperature:
+            return ["주간 예보 (서울): 발표 자료 없음"]
+        weather, temperatures = land[0], temperature[0]
+        lines = [f"주간 예보 (서울, {base} 발표):"]
+        for day in range(3, 8):
+            weather_text = str(weather.get(f"wf{day}Am") or weather.get(f"wf{day}") or "-")
+            rain = str(weather.get(f"rnSt{day}Am") or weather.get(f"rnSt{day}") or "-")
+            minimum = str(temperatures.get(f"taMin{day}") or "-")
+            maximum = str(temperatures.get(f"taMax{day}") or "-")
+            lines.append(
+                f"{day}일 후: 오전 {weather_text}, 강수확률 {rain}%, 최저 {minimum}°C, 최고 {maximum}°C"
+            )
+        return lines
+
     def _request(
         self, endpoint: str, base_date: str, base_time: str, nx: int, ny: int, rows: int = 100
     ) -> list[dict[str, Any]]:
-        response = self._client.get(
+        return self._request_endpoint(
             f"{self._base_url}/{endpoint}",
+            {"base_date": base_date, "base_time": base_time, "nx": nx, "ny": ny},
+            rows,
+        )
+
+    def _request_endpoint(
+        self, url: str, parameters: dict[str, str | int], rows: int = 100
+    ) -> list[dict[str, Any]]:
+        response = self._client.get(
+            url,
             params={
-                # data.go.kr presents the same general key in encoded and
-                # decoded forms.  httpx encodes query parameters itself, so
-                # normalize either form to decoded text before handing it over.
                 "serviceKey": unquote(self._service_key),
                 "pageNo": 1,
                 "numOfRows": rows,
                 "dataType": "JSON",
-                "base_date": base_date,
-                "base_time": base_time,
-                "nx": nx,
-                "ny": ny,
+                **parameters,
             },
             timeout=30,
         )
@@ -142,6 +193,15 @@ class KmaWeather:
             raise ValueError(f"KMA API error: {header.get('resultMsg', 'unknown error')}")
         items = body.get("items", {}).get("item", []) if isinstance(body, dict) else []
         return [item for item in items if isinstance(item, dict)] if isinstance(items, list) else []
+
+    @staticmethod
+    def _mid_base(now: datetime) -> datetime:
+        ready = now - timedelta(minutes=30)
+        if ready.hour >= 18:
+            return ready.replace(hour=18, minute=0, second=0, microsecond=0)
+        if ready.hour >= 6:
+            return ready.replace(hour=6, minute=0, second=0, microsecond=0)
+        return (ready - timedelta(days=1)).replace(hour=18, minute=0, second=0, microsecond=0)
 
     @classmethod
     def _forecast_base(cls, now: datetime) -> datetime:

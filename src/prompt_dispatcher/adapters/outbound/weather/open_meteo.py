@@ -78,6 +78,15 @@ class OpenMeteoWeather:
                     f"일 최대 강수확률 {self._at(daily, 'precipitation_probability_max', index)}%; "
                     f"일 누적 강수량 {self._at(daily, 'precipitation_sum', index)}mm"
                 )
+        if source.include_alerts or source.include_weekly:
+            unavailable = []
+            if source.include_alerts:
+                unavailable.append("기상특보")
+            if source.include_weekly:
+                unavailable.append("기상청 주간 예보")
+            lines.append(
+                f"{', '.join(unavailable)}: 기상청 엔진을 선택해야 제공됩니다."
+            )
         lines.append(f"기준 시각: {datetime.now(ZoneInfo(source.timezone)).isoformat(timespec='minutes')}")
         lines.append(f"출처: Open-Meteo — {response.url}")
         return "\n".join(lines)

@@ -244,6 +244,8 @@ def create_app(container: ApplicationContainer) -> FastAPI:
                                     "include_current": source.include_current,
                                     "include_daily": source.include_daily,
                                     "forecast_days": source.forecast_days,
+                                    "include_alerts": source.include_alerts,
+                                    "include_weekly": source.include_weekly,
                                 }
                                 for source in task.weather_sources
                             ],
@@ -263,6 +265,8 @@ def create_app(container: ApplicationContainer) -> FastAPI:
                             "include_current": source.include_current,
                             "include_daily": source.include_daily,
                             "forecast_days": source.forecast_days,
+                            "include_alerts": source.include_alerts,
+                            "include_weekly": source.include_weekly,
                         }
                         for source in job.weather_sources
                     ]

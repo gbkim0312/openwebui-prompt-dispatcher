@@ -80,6 +80,8 @@ class WeatherSource:
     include_current: bool = True
     include_daily: bool = True
     forecast_days: int = 2
+    include_alerts: bool = False
+    include_weekly: bool = False
 
 
 @dataclass(frozen=True)

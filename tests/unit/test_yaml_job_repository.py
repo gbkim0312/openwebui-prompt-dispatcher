@@ -121,6 +121,8 @@ def test_weather_only_research_task_is_loaded(tmp_path) -> None:
                   name: 서울
                   latitude: 37.5665
                   longitude: 126.9780
+                  include_alerts: true
+                  include_weekly: true
         """
     )
     (tmp_path / "weather.job.yaml").write_text(content, encoding="utf-8")
@@ -132,3 +134,5 @@ def test_weather_only_research_task_is_loaded(tmp_path) -> None:
     assert task.use_web_search is False
     assert task.use_prompt is False
     assert task.weather_sources[0].id == "seoul"
+    assert task.weather_sources[0].include_alerts is True
+    assert task.weather_sources[0].include_weekly is True

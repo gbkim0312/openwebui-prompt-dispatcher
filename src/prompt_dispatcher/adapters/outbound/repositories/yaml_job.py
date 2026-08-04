@@ -150,6 +150,8 @@ class YamlJobRepository:
             current,
             daily,
             days,
+            bool(raw.get("include_alerts", False)),
+            bool(raw.get("include_weekly", False)),
         )
 
     @staticmethod
