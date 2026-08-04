@@ -75,7 +75,10 @@ class KmaWeather:
             lines.append(f"시간대별 초단기 예보: 조회 실패 ({type(error).__name__})")
         try:
             village_items = self._village_items(now, nx, ny)
-            for forecast in self._daily(village_items, source.forecast_days):
+            # The short-term service provides forecasts through the day after
+            # tomorrow.  Keep all four calendar dates (today included) so it
+            # fills the hand-off point before the mid-range forecast.
+            for forecast in self._daily(village_items, max(source.forecast_days, 4)):
                 lines.append(
                     f"일일 예보 ({forecast['date']}): 날씨 상태 {forecast['condition']}; "
                     f"최저 {forecast.get('min_temperature', '-')}°C, "

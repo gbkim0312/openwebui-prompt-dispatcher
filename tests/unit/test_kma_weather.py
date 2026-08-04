@@ -41,6 +41,8 @@ def test_kma_weather_formats_current_and_daily_forecast() -> None:
                 {"fcstDate": "20260805", "fcstTime": "0600", "category": "TMN", "fcstValue": "25"},
                 {"fcstDate": "20260805", "fcstTime": "1500", "category": "TMX", "fcstValue": "33"},
                 {"fcstDate": "20260805", "fcstTime": "0900", "category": "POP", "fcstValue": "60"},
+                {"fcstDate": "20260806", "fcstTime": "1200", "category": "SKY", "fcstValue": "1"},
+                {"fcstDate": "20260807", "fcstTime": "1200", "category": "SKY", "fcstValue": "1"},
             ]
         return httpx.Response(200, json={"response": {"header": {"resultCode": "00"}, "body": {"items": {"item": items}}}})
 
@@ -61,6 +63,7 @@ def test_kma_weather_formats_current_and_daily_forecast() -> None:
     assert "현재 실황 (2026-08-04 06:00 발표): 강수 없음; 기온 29.7°C" in report
     assert "일일 예보 (2026-08-04): 날씨 상태 맑음; 최저 24°C, 최고 35°C; 일 최대 강수확률 10%" in report
     assert "일일 예보 (2026-08-05): 날씨 상태 비;" in report
+    assert "일일 예보 (2026-08-07): 날씨 상태 맑음;" in report
     assert "시간대별 초단기 예보 (2026-08-04 06:30 발표):" in report
     assert "2026-08-04 08:00: 맑음; 기온 30°C, 강수확률 10%" in report
     assert "시간대별 단기 예보 (초단기예보 이후):" in report
