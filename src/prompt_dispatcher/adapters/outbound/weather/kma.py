@@ -3,6 +3,7 @@ from collections.abc import Callable
 from datetime import datetime, timedelta
 from math import cos, floor, log, pi, pow, sin, tan
 from typing import Any, ClassVar
+from urllib.parse import unquote
 from zoneinfo import ZoneInfo
 
 import httpx
@@ -117,7 +118,10 @@ class KmaWeather:
         response = self._client.get(
             f"{self._base_url}/{endpoint}",
             params={
-                "serviceKey": self._service_key,
+                # data.go.kr presents the same general key in encoded and
+                # decoded forms.  httpx encodes query parameters itself, so
+                # normalize either form to decoded text before handing it over.
+                "serviceKey": unquote(self._service_key),
                 "pageNo": 1,
                 "numOfRows": rows,
                 "dataType": "JSON",
