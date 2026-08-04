@@ -308,7 +308,7 @@ window.loadJobChannels=async function(selected){
   const selectedEmail=selected.find(channel=>channel.type==='email')?.target||'personal';
   try{
     const channels=await api('/api/channels');picker.replaceChildren();let emailAdded=false;
-    for(const channel of channels){
+    for(const channel of channels.filter(channel=>channel.type!=='nextcloud_talk')){
       if(channel.type==='email'){
         if(emailAdded)continue;emailAdded=true;
       }
@@ -318,13 +318,24 @@ window.loadJobChannels=async function(selected){
       text.textContent=channel.type==='email'?' 이메일':channel.type==='nextcloud_talk'?` Nextcloud Talk: ${channel.name||channel.target} (${channel.target})`:` ${channel.type}: ${channel.target}`;
       itemLabel.style.margin='0';itemLabel.style.display='flex';itemLabel.style.alignItems='center';itemLabel.append(input,text);picker.append(itemLabel);
     }
+    const talkRooms=channels.filter(channel=>channel.type==='nextcloud_talk');
+    if(talkRooms.length){
+      const wrapper=document.createElement('div');wrapper.className='nextcloud-job-picker';
+      const checked=talkRooms.some(room=>selectedKeys.has(`nextcloud_talk:${room.target}`));
+      wrapper.innerHTML='<label class="nextcloud-job-toggle"><input class="job-nextcloud-toggle" type="checkbox" style="width:auto"> Nextcloud Talk</label><div class="nextcloud-job-rooms" hidden><button class="secondary nextcloud-job-room-button" type="button">방 선택 ▾</button><div class="nextcloud-job-room-panel" hidden></div></div>';
+      const toggle=wrapper.querySelector('.job-nextcloud-toggle'),rooms=wrapper.querySelector('.nextcloud-job-rooms'),button=wrapper.querySelector('.nextcloud-job-room-button'),panel=wrapper.querySelector('.nextcloud-job-room-panel');toggle.checked=checked;rooms.hidden=!checked;
+      for(const room of talkRooms){const roomLabel=document.createElement('label'),input=document.createElement('input'),text=document.createElement('span');input.type='checkbox';input.className='job-nextcloud-room';input.dataset.target=room.target;input.checked=selectedKeys.has(`nextcloud_talk:${room.target}`);input.style.width='auto';text.textContent=` ${room.name||room.target} (${room.target})`;roomLabel.append(input,text);panel.append(roomLabel)}
+      const updateButton=()=>{const count=panel.querySelectorAll('.job-nextcloud-room:checked').length;button.textContent=count?`방 ${count}개 선택 ▾`:'방 선택 ▾'};
+      toggle.addEventListener('change',()=>{rooms.hidden=!toggle.checked;if(toggle.checked)button.focus();updateButton()});button.addEventListener('click',()=>{panel.hidden=!panel.hidden});panel.addEventListener('change',updateButton);updateButton();picker.append(wrapper);
+    }
     addEmailRecipientControls(picker,'.job-channel');
-    const sync=()=>{textarea.value=[...picker.querySelectorAll('.job-channel:checked')].filter(input=>input.dataset.type!=='email'||input.dataset.emailRegistered==='true').map(input=>`${input.dataset.type}:${input.dataset.target}`).join('\n')};
+    const sync=()=>{const direct=[...picker.querySelectorAll('.job-channel:checked')].filter(input=>input.dataset.type!=='email'||input.dataset.emailRegistered==='true').map(input=>`${input.dataset.type}:${input.dataset.target}`),talk=picker.querySelector('.job-nextcloud-toggle')?.checked?[...picker.querySelectorAll('.job-nextcloud-room:checked')].map(input=>`nextcloud_talk:${input.dataset.target}`):[];textarea.value=[...direct,...talk].join('\n')};
     picker.addEventListener('change',sync);sync();
   }catch(error){textarea.style.display='block';if(label)label.textContent='채널 (한 줄에 type:target, 예: telegram:personal)'}
 };
 </script><style>
 .email-recipient-control{flex:1 0 100%;max-width:520px;margin:0 0 4px 22px;padding:10px 12px;border-left:3px solid #1565c0;background:#f4f8fc}.email-recipient-control label{margin:0 0 4px;font-size:12px}.email-recipient-row{display:flex;gap:8px}.email-recipient-row input{min-width:0;flex:1}.email-recipient-row button{white-space:nowrap}.email-recipient-status{margin:6px 0 0!important}.email-recipient-error{color:#b21f2d}
+.nextcloud-job-picker{flex:1 0 100%;display:flex;align-items:flex-start;gap:10px}.nextcloud-job-toggle{display:flex;align-items:center;gap:6px;margin:0;font-weight:600}.nextcloud-job-rooms{position:relative}.nextcloud-job-room-panel{position:absolute;z-index:4;top:calc(100% + 6px);left:0;display:grid;gap:7px;min-width:240px;padding:10px;border:1px solid #cbd8e6;border-radius:8px;background:#fff;box-shadow:0 8px 20px #10203020}.nextcloud-job-room-panel label{display:flex;align-items:center;gap:6px;margin:0;white-space:nowrap}.nextcloud-job-room-panel input{width:auto}
 </style><script>
 const sendInstantPromptBeforeRecipientRegistration=sendInstantPrompt;
 window.sendInstantPrompt=async function(){
