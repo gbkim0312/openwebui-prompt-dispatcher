@@ -17,6 +17,7 @@ from prompt_dispatcher.adapters.outbound.repositories.yaml_job import YamlJobRep
 from prompt_dispatcher.adapters.outbound.search.tavily import TavilySearch
 from prompt_dispatcher.adapters.outbound.system.clock import SystemClock
 from prompt_dispatcher.adapters.outbound.templates.jinja_renderer import JinjaTemplateRenderer
+from prompt_dispatcher.adapters.outbound.weather.kma import KmaWeather
 from prompt_dispatcher.adapters.outbound.weather.open_meteo import OpenMeteoWeather
 from prompt_dispatcher.application.ports.message_channel import MessageChannelPort
 from prompt_dispatcher.application.ports.model_catalog import ModelCatalogPort
@@ -120,6 +121,11 @@ def build_container(settings: Settings | None = None) -> ApplicationContainer:
     tavily = TavilySearch(settings.tavily_api_key)
     executions = SqliteExecutionRepository(settings.database_path)
     resolver = ChannelResolver(channels)
+    weather = (
+        KmaWeather(settings.kma_service_key)
+        if settings.weather_engine == "kma"
+        else OpenMeteoWeather()
+    )
     run = RunJob(
         jobs,
         FilePromptLoader(settings.prompts_directory),
@@ -131,7 +137,7 @@ def build_container(settings: Settings | None = None) -> ApplicationContainer:
         model_catalog,
         tavily,
         settings.execution_retention_days,
-        OpenMeteoWeather(),
+        weather,
     )
     send_prompt = SendPrompt(openwebui, resolver, clock, tavily)
     return ApplicationContainer(

@@ -477,4 +477,27 @@ organizeResearchDataSources();
 .research-search-fields{margin-top:10px;padding:14px;border-left:3px solid #1565c0;background:#f4f8fc}
 .research-search-fields h4{margin:0 0 12px}
 .research-input-sources{margin-top:4px}
+</style><script>
+const showSettingsWithWeatherEngine=window.showSettings;
+window.showSettings=async function(){
+  await showSettingsWithWeatherEngine();
+  const groups=$('#editor .settings-groups');if(!groups||$('#weather-engine-settings'))return;
+  const data=await api('/api/settings'),engine=data.values.WEATHER_ENGINE||'open_meteo',key=data.values.KMA_SERVICE_KEY||'';
+  sensitiveSettings.add('KMA_SERVICE_KEY');
+  groups.insertAdjacentHTML('beforeend',`<section id="weather-engine-settings" class="settings-group"><div class="connection-section-heading"><div><h3>날씨 엔진</h3><p class="muted">리서치의 날씨 API 데이터 소스에 적용됩니다.</p></div><button class="secondary" type="button" onclick="testWeatherEngine()">서울 날씨 연결 테스트</button></div><div class="cols"><div><label>데이터 제공자</label><select class="setting-field" id="WEATHER_ENGINE"><option value="open_meteo">Open-Meteo — 무료, API 키 없음</option><option value="kma">기상청 단기예보 — 국내 실황·예보</option></select></div><div id="kma-service-key-field"><label>기상청 공공데이터포털 서비스 키</label><div class="input-with-toggle"><input class="setting-field" id="KMA_SERVICE_KEY" type="password" autocomplete="off" placeholder="data.go.kr에서 발급한 Decoding 키"><button class="secondary" type="button" onclick="toggleSetting('KMA_SERVICE_KEY',this)" aria-label="서비스 키 표시 또는 숨김">👁</button></div></div></div><p id="weather-engine-hint" class="muted"></p><pre id="weather-engine-test-result" class="weather-engine-result" hidden></pre></section>`);
+  $('#WEATHER_ENGINE').value=engine;$('#KMA_SERVICE_KEY').value=key;
+  const update=()=>{const kma=$('#WEATHER_ENGINE').value==='kma';$('#kma-service-key-field').hidden=!kma;$('#weather-engine-hint').textContent=kma?'공공데이터포털에서 “기상청 단기예보 조회서비스”를 활용 신청한 뒤 발급된 Decoding 서비스 키를 입력하세요.':'Open-Meteo는 API 키 없이 바로 사용할 수 있습니다.'};
+  $('#WEATHER_ENGINE').addEventListener('change',update);update();
+};
+window.testWeatherEngine=async function(){
+  const result=$('#weather-engine-test-result'),button=document.querySelector('button[onclick="testWeatherEngine()"]');
+  if(button)button.disabled=true;result.hidden=false;result.textContent='현재 입력값으로 서울 날씨 데이터를 확인 중입니다…';
+  try{const values={};document.querySelectorAll('.setting-field').forEach(input=>values[input.id]=input.value);await api('/api/settings',{method:'PUT',body:JSON.stringify({values})});const data=await api('/api/settings/test/weather',{method:'POST'});result.textContent=`✓ ${data.message}\n\n${data.preview||''}`;}
+  catch(error){result.textContent='연결 실패: '+error.message;}
+  finally{if(button)button.disabled=false}
+};
+</script><style>
+#weather-engine-settings h3{margin:0}
+#weather-engine-settings .muted{margin:4px 0 0}
+.weather-engine-result{margin:12px 0 0;max-height:260px;overflow:auto;white-space:pre-wrap;background:#f4f8fc;border:1px solid #dce3ea;border-radius:6px;padding:10px;font:12px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace}
 </style></body></html>

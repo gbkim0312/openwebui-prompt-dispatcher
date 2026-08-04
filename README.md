@@ -109,7 +109,9 @@ python3 -m venv .venv
 리서치 카드에서 기본으로 작성하는 것은 **리서치 프롬프트**입니다. 필요한 자료 수집 방식만 선택하면 해당 설정이 펼쳐집니다.
 
 - **웹 검색(Tavily)**: 검색어, 기간, 주제, 검색 깊이, 결과 수, 도메인, 원문 콘텐츠 포함 여부를 설정합니다.
-- **날씨 API**: Open-Meteo의 위치·좌표·시간대·예보 일수와 현재/일별 데이터 포함 여부를 설정합니다. API 키는 필요하지 않습니다.
+- **날씨 API**: 설정 화면에서 선택한 Open-Meteo 또는 기상청 엔진으로 위치·좌표·시간대·예보 일수를 조회합니다.
+
+연결 설정의 **날씨 엔진**에서 제공자를 고릅니다. Open-Meteo는 API 키가 필요 없고, 기상청 엔진은 공공데이터포털의 `기상청_단기예보 조회서비스` 서비스 키가 필요합니다. 기상청 엔진은 초단기실황과 단기예보를 사용하므로 국내 현재 실황·강수확률 확인에 적합합니다. 설정 화면의 **서울 날씨 연결 테스트**로 키와 엔진을 바로 확인할 수 있습니다.
 
 둘 중 하나 또는 둘 다를 선택할 수 있습니다. 날씨 API만 선택한 리서치는 검색어 없이 실행되며, 구조화된 날씨 데이터를 리서치 프롬프트 또는 원본 전달 방식으로 최상위 작업에 넘깁니다. 최상위 프롬프트에는 해당 결과를 `{{ research.리서치ID }}` 또는 `{{ research_context }}`로 넣으세요.
 
@@ -170,6 +172,8 @@ UI에서 저장한 연결 키는 `data/management.env`에 저장됩니다. **키
 | `OPENWEBUI_TIMEOUT_SECONDS` | `600` | 기본 Open WebUI 요청 제한 시간입니다. 개별 Job은 `openwebui.timeout_seconds`로 재정의합니다. |
 | `OPENWEBUI_VERIFY_TLS` | `true` | HTTPS 인증서 검증 여부입니다. 운영 환경에서는 `true`를 유지하세요. |
 | `TAVILY_API_KEY` | 빈 값 | `Web Search with Tavily` 선택 시 디스패처가 직접 호출할 Tavily API 키입니다. `tvly-`로 시작하는 비밀값이며 Git에 저장하지 마세요. |
+| `WEATHER_ENGINE` | `open_meteo` | 날씨 데이터 제공자입니다. `open_meteo` 또는 `kma`를 사용합니다. UI에서 저장한 값이 우선 적용됩니다. |
+| `KMA_SERVICE_KEY` | 빈 값 | `WEATHER_ENGINE=kma`일 때 필요한 공공데이터포털 기상청 단기예보 조회서비스의 **Decoding 서비스 키**입니다. 민감값이므로 Git에 저장하지 마세요. |
 | `EXECUTION_RETENTION_DAYS` | `30` | 실행 이력과 최종 응답을 DB에 보관할 일수입니다. 기간이 지난 기록과 전송 이력은 다음 작업 실행 시 자동 삭제됩니다. |
 | `TELEGRAM_PERSONAL_BOT_TOKEN` | 빈 값 | `target: personal` Telegram 채널의 Bot Token입니다. target이 `team-alert`라면 `TELEGRAM_TEAM_ALERT_BOT_TOKEN` 형식을 사용합니다. |
 | `TELEGRAM_PERSONAL_CHAT_ID` | 빈 값 | 해당 Telegram target의 Chat ID입니다. target 별칭 규칙은 Bot Token과 같습니다. |

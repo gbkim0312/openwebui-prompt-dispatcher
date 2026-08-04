@@ -59,6 +59,8 @@ class Settings:
     smtp_password: str
     smtp_from_address: str
     smtp_use_tls: bool
+    weather_engine: str
+    kma_service_key: str
 
     @classmethod
     def from_environment(cls) -> "Settings":
@@ -70,6 +72,13 @@ class Settings:
 
         def value(key: str, default: str = "") -> str:
             return os.getenv(key) or managed.get(key, default)
+
+        def managed_value(key: str, default: str = "") -> str:
+            return managed.get(key) or os.getenv(key) or default
+
+        weather_engine = managed_value("WEATHER_ENGINE", "open_meteo").strip().lower()
+        if weather_engine not in {"open_meteo", "kma"}:
+            weather_engine = "open_meteo"
 
         return cls(
             value("LOG_LEVEL", "INFO"),
@@ -92,4 +101,6 @@ class Settings:
             value("SMTP_PASSWORD"),
             value("SMTP_FROM") or value("SMTP_USERNAME"),
             _truth(value("SMTP_USE_TLS", "true")),
+            weather_engine,
+            managed_value("KMA_SERVICE_KEY"),
         )

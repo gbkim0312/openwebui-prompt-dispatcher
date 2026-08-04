@@ -11,13 +11,15 @@ from prompt_dispatcher.adapters.outbound.channels.nextcloud_talk import Nextclou
 from prompt_dispatcher.adapters.outbound.channels.smtp_email import SmtpEmailChannel
 from prompt_dispatcher.adapters.outbound.channels.telegram import TelegramChannel
 from prompt_dispatcher.adapters.outbound.repositories.web_management import WebManagementStore
+from prompt_dispatcher.adapters.outbound.weather.kma import KmaWeather
+from prompt_dispatcher.adapters.outbound.weather.open_meteo import OpenMeteoWeather
 from prompt_dispatcher.application.dto.commands import RunJobCommand
 from prompt_dispatcher.application.use_cases.send_prompt import SendPromptCommand
 from prompt_dispatcher.bootstrap.container import ApplicationContainer
 from prompt_dispatcher.bootstrap.settings import Settings
 from prompt_dispatcher.domain.delivery import DeliveryResult, OutboundMessage
 from prompt_dispatcher.domain.enums import DeliveryStatus
-from prompt_dispatcher.domain.job import ChannelDestination
+from prompt_dispatcher.domain.job import ChannelDestination, WeatherSource
 
 logger = logging.getLogger(__name__)
 
@@ -361,11 +363,34 @@ def create_app(container: ApplicationContainer) -> FastAPI:
 
     @app.post("/api/settings/test/{channel_type}")
     def test_connection(
-        channel_type: Literal["telegram", "nextcloud_talk", "email"]
+        channel_type: Literal["telegram", "nextcloud_talk", "email", "weather"]
     ) -> dict[str, str]:
         """Send a short real message using the settings currently saved by the UI."""
         values = store.read_values()
         settings = Settings.from_environment()
+        if channel_type == "weather":
+            try:
+                weather = (
+                    KmaWeather(settings.kma_service_key)
+                    if settings.weather_engine == "kma"
+                    else OpenMeteoWeather()
+                )
+                report = weather.fetch(WeatherSource("seoul", "서울", 37.5665, 126.9780))
+            except Exception as error:
+                detail = str(error).replace("\n", " ")
+                logger.warning(
+                    "event=weather_engine_test_failed engine=%s error_type=%s error_message=%s",
+                    settings.weather_engine,
+                    type(error).__name__,
+                    detail,
+                )
+                raise HTTPException(422, detail) from error
+            logger.info("event=weather_engine_test_success engine=%s", settings.weather_engine)
+            return {
+                "status": "ok",
+                "message": f"{settings.weather_engine} 엔진 연결에 성공했습니다.",
+                "preview": report,
+            }
         message = OutboundMessage("Prompt Dispatcher 연결 테스트", "연결 테스트 메시지입니다.")
         channel: TelegramChannel | NextcloudTalkChannel | SmtpEmailChannel
         try:
