@@ -20,6 +20,15 @@ def test_kma_weather_formats_current_and_daily_forecast() -> None:
                 {"category": "RN1", "obsrValue": "강수없음"},
                 {"category": "WSD", "obsrValue": "1.2"},
             ]
+        elif request.url.path.endswith("getUltraSrtFcst"):
+            items = [
+                {"fcstDate": "20260804", "fcstTime": "0800", "category": "SKY", "fcstValue": "1"},
+                {"fcstDate": "20260804", "fcstTime": "0800", "category": "PTY", "fcstValue": "0"},
+                {"fcstDate": "20260804", "fcstTime": "0800", "category": "T1H", "fcstValue": "30"},
+                {"fcstDate": "20260804", "fcstTime": "0800", "category": "POP", "fcstValue": "10"},
+                {"fcstDate": "20260804", "fcstTime": "0800", "category": "REH", "fcstValue": "65"},
+                {"fcstDate": "20260804", "fcstTime": "0800", "category": "WSD", "fcstValue": "1.5"},
+            ]
         else:
             items = [
                 {"fcstDate": "20260804", "fcstTime": "1200", "category": "SKY", "fcstValue": "1"},
@@ -43,14 +52,17 @@ def test_kma_weather_formats_current_and_daily_forecast() -> None:
 
     report = weather.fetch(WeatherSource("seoul", "서울", 37.5665, 126.9780))
 
-    assert len(requests) == 2
+    assert len(requests) == 6
     assert requests[0].url.params["nx"] == "60"
     assert requests[0].url.params["ny"] == "127"
     assert requests[0].url.params["base_time"] == "0600"
-    assert requests[1].url.params["base_time"] == "0500"
+    assert requests[1].url.params["base_time"] == "0630"
+    assert requests[2].url.params["base_time"] == "0500"
     assert "현재 실황 (2026-08-04 06:00 발표): 강수 없음; 기온 29.7°C" in report
     assert "일일 예보 (2026-08-04): 날씨 상태 맑음; 최저 24°C, 최고 35°C; 일 최대 강수확률 10%" in report
     assert "일일 예보 (2026-08-05): 날씨 상태 비;" in report
+    assert "시간대별 초단기 예보 (2026-08-04 06:30 발표):" in report
+    assert "2026-08-04 08:00: 맑음; 기온 30°C, 강수확률 10%" in report
 
 
 def test_kma_weather_can_include_alerts_and_weekly_forecast() -> None:

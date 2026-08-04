@@ -53,7 +53,12 @@ class KmaWeather:
                 "강수확률은 명시된 % 값만 사용하고, 날씨 상태를 확률로 바꾸지 마세요."
             ),
         ]
-        if source.include_current:
+        # A KMA weather source is deliberately comprehensive.  The individual
+        # public-data APIs are complementary (rather than alternative views of
+        # the same data), so collect them all without asking a job author to
+        # understand each endpoint.  A temporary failure in one service must
+        # not discard the rest of the weather briefing.
+        try:
             current = self._current(now, nx, ny)
             lines.append(
                 f"현재 실황 ({current['time']}): {current['condition']}; "
@@ -62,7 +67,13 @@ class KmaWeather:
                 f"1시간 강수량 {current.get('precipitation', '-')}, "
                 f"바람 {current.get('wind_speed', '-')}m/s"
             )
-        if source.include_daily:
+        except Exception as error:
+            lines.append(f"현재 실황: 조회 실패 ({type(error).__name__})")
+        try:
+            lines.extend(self._hourly(now, nx, ny))
+        except Exception as error:
+            lines.append(f"시간대별 초단기 예보: 조회 실패 ({type(error).__name__})")
+        try:
             for forecast in self._daily(now, nx, ny, source.forecast_days):
                 lines.append(
                     f"일일 예보 ({forecast['date']}): 날씨 상태 {forecast['condition']}; "
@@ -70,16 +81,16 @@ class KmaWeather:
                     f"최고 {forecast.get('max_temperature', '-')}°C; "
                     f"일 최대 강수확률 {forecast.get('precipitation_probability', '-')}%"
                 )
-        if source.include_alerts:
-            try:
-                lines.extend(self._alerts(now))
-            except Exception as error:
-                lines.append(f"기상특보: 조회 실패 ({type(error).__name__})")
-        if source.include_weekly:
-            try:
-                lines.extend(self._weekly(now))
-            except Exception as error:
-                lines.append(f"주간 예보: 조회 실패 ({type(error).__name__})")
+        except Exception as error:
+            lines.append(f"단기 예보: 조회 실패 ({type(error).__name__})")
+        try:
+            lines.extend(self._alerts(now))
+        except Exception as error:
+            lines.append(f"기상특보: 조회 실패 ({type(error).__name__})")
+        try:
+            lines.extend(self._weekly(now))
+        except Exception as error:
+            lines.append(f"주간 예보: 조회 실패 ({type(error).__name__})")
         lines.append(f"기준 시각: {now.isoformat(timespec='minutes')}")
         lines.append(f"출처: 기상청 단기예보 조회서비스 — {self._portal_url}")
         return "\n".join(lines)
@@ -127,6 +138,32 @@ class KmaWeather:
                 }
             )
         return forecasts
+
+    def _hourly(self, now: datetime, nx: int, ny: int) -> list[str]:
+        base = self._ultra_forecast_base(now)
+        items = self._request("getUltraSrtFcst", base.strftime("%Y%m%d"), base.strftime("%H%M"), nx, ny, 1000)
+        grouped: dict[tuple[str, str], dict[str, str]] = defaultdict(dict)
+        for item in items:
+            date, time, category = item.get("fcstDate"), item.get("fcstTime"), item.get("category")
+            if isinstance(date, str) and isinstance(time, str) and isinstance(category, str):
+                grouped[(date, time)][category] = str(item.get("fcstValue", "-"))
+        upcoming = sorted(grouped.items())[:6]
+        if not upcoming:
+            return ["시간대별 초단기 예보: 발표 자료 없음"]
+        lines = [f"시간대별 초단기 예보 ({base.strftime('%Y-%m-%d %H:%M')} 발표):"]
+        for (date, time), values in upcoming:
+            precipitation = self._number(values.get("PTY", "0"))
+            condition = (
+                self._precipitation_types.get(precipitation, "강수")
+                if precipitation
+                else self._sky_conditions.get(self._number(values.get("SKY", "0")), "알 수 없음")
+            )
+            lines.append(
+                f"{date[:4]}-{date[4:6]}-{date[6:]} {time[:2]}:{time[2:]}: {condition}; "
+                f"기온 {values.get('T1H', '-')}°C, 강수확률 {values.get('POP', '-')}%, "
+                f"습도 {values.get('REH', '-')}%, 바람 {values.get('WSD', '-')}m/s"
+            )
+        return lines
 
     def _alerts(self, now: datetime) -> list[str]:
         items = self._request_endpoint(
@@ -228,6 +265,13 @@ class KmaWeather:
             if candidate <= ready:
                 return candidate
         return (ready - timedelta(days=1)).replace(hour=23, minute=0, second=0, microsecond=0)
+
+    @staticmethod
+    def _ultra_forecast_base(now: datetime) -> datetime:
+        ready = now - timedelta(minutes=45)
+        if ready.minute < 30:
+            ready -= timedelta(hours=1)
+        return ready.replace(minute=30, second=0, microsecond=0)
 
     @classmethod
     def _forecast_condition(cls, values: dict[str, list[dict[str, Any]]]) -> str:
