@@ -16,6 +16,7 @@ from prompt_dispatcher.application.ports import (
 )
 from prompt_dispatcher.application.ports.model_catalog import ModelCatalogPort
 from prompt_dispatcher.application.services.channel_resolver import ChannelResolver
+from prompt_dispatcher.application.services.markdown import normalize_markdown_ranges
 from prompt_dispatcher.application.services.tavily_context import (
     enrich_with_tavily,
     format_tavily_results,
@@ -245,6 +246,7 @@ class RunJob:
                 ).content
             if not content.strip():
                 raise ValueError("Open WebUI returned empty content")
+            content = normalize_markdown_ranges(content)
             logger.info(
                 "event=openwebui_response job_id=%s execution_id=%s response_length=%s",
                 job.id,

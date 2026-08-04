@@ -5,6 +5,7 @@ from prompt_dispatcher.adapters.outbound.search.tavily import TavilySearch
 from prompt_dispatcher.application.ports.clock import ClockPort
 from prompt_dispatcher.application.ports.openwebui import OpenWebUiPort
 from prompt_dispatcher.application.services.channel_resolver import ChannelResolver
+from prompt_dispatcher.application.services.markdown import normalize_markdown_ranges
 from prompt_dispatcher.application.services.tavily_context import enrich_with_tavily
 from prompt_dispatcher.domain.delivery import OutboundMessage
 from prompt_dispatcher.domain.job import ChannelDestination, OpenWebUiRequest
@@ -95,15 +96,16 @@ class SendPrompt:
                     f"선택 툴: {', '.join(command.tool_ids)}"
                 )
             raise ValueError("Open WebUI returned empty content")
+        content = normalize_markdown_ranges(response.content)
         if command.dry_run:
             logger.info(
                 "event=instant_prompt_completed dry_run=true response_length=%s",
-                len(response.content),
+                len(content),
             )
-            return SendPromptResult(response.content, (), ())
+            return SendPromptResult(content, (), ())
         successful: list[str] = []
         failed: list[str] = []
-        message = OutboundMessage(command.title, response.content)
+        message = OutboundMessage(command.title, content)
         for destination in command.destinations:
             target_label = f"{destination.channel_type}:{destination.target}"
             try:
@@ -128,4 +130,4 @@ class SendPrompt:
             len(successful),
             len(failed),
         )
-        return SendPromptResult(response.content, tuple(successful), tuple(failed))
+        return SendPromptResult(content, tuple(successful), tuple(failed))

@@ -16,6 +16,7 @@ from prompt_dispatcher.adapters.outbound.repositories.web_management import WebM
 from prompt_dispatcher.adapters.outbound.weather.kma import KmaWeather
 from prompt_dispatcher.adapters.outbound.weather.open_meteo import OpenMeteoWeather
 from prompt_dispatcher.application.dto.commands import RunJobCommand
+from prompt_dispatcher.application.services.markdown import normalize_markdown_ranges
 from prompt_dispatcher.application.use_cases.register_schedules import RegisterSchedules
 from prompt_dispatcher.application.use_cases.send_prompt import SendPromptCommand
 from prompt_dispatcher.bootstrap.container import ApplicationContainer, build_container
@@ -560,7 +561,8 @@ def create_app(container: ApplicationContainer) -> FastAPI:
             label = f"{destination.channel_type}:{destination.target}"
             try:
                 receipt = container.channels.resolve(destination.channel_type).send(
-                    destination.target, OutboundMessage(record.job_id, record.response_content)
+                    destination.target,
+                    OutboundMessage(record.job_id, normalize_markdown_ranges(record.response_content)),
                 )
                 container.executions.add_delivery(
                     execution_id,
