@@ -449,8 +449,9 @@ function organizeResearchDataSources(){
 }
 function updateResearchDataSourceVisibility(){
   for(const card of document.querySelectorAll('#research-task-list .settings-group')){
-    const promptToggle=card.querySelector('.research-use-prompt'),web=card.querySelector('.research-use-web'),weather=card.querySelector('.research-use-weather');
+    const activation=card.querySelector('.research-enabled'),promptToggle=card.querySelector('.research-use-prompt'),web=card.querySelector('.research-use-web'),weather=card.querySelector('.research-use-weather');
     const search=card.querySelector('.research-search-fields'),weatherFields=card.querySelector('.research-weather-fields');
+    if(activation)card.classList.toggle('research-inactive',!activation.checked);
     const prompt=card.querySelector('.research-summary')?.closest('.wide'),model=card.querySelector('.research-model-wrap');
     if(promptToggle&&prompt)prompt.hidden=!promptToggle.checked;
     if(promptToggle&&model)model.hidden=!promptToggle.checked;
@@ -466,5 +467,5 @@ organizeResearchDataSources();
 </script><style>
 .research-search-fields{margin-top:10px;padding:14px;border-left:3px solid #1565c0;background:#f4f8fc}
 .research-search-fields h4{margin:0 0 12px}
-.research-input-sources{order:20}
+.research-input-sources{margin-top:4px}
 </style></body></html>
