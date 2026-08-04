@@ -1,3 +1,4 @@
+import json
 import os
 from dataclasses import dataclass
 from typing import cast
@@ -41,6 +42,30 @@ def _target(
     return values if all(values) else None
 
 
+def _configured_talk_rooms(managed: dict[str, str]) -> dict[str, tuple[str, str, str]]:
+    raw = managed.get("NEXTCLOUD_TALK_ROOMS") or os.getenv("NEXTCLOUD_TALK_ROOMS", "")
+    try:
+        rooms = json.loads(raw) if raw else []
+    except json.JSONDecodeError:
+        return {}
+    if not isinstance(rooms, list):
+        return {}
+    default_credentials = _target(
+        "NEXTCLOUD_TALK", "personal", ("USERNAME", "APP_PASSWORD"), managed
+    )
+    if default_credentials is None:
+        return {}
+    targets: dict[str, tuple[str, str, str]] = {}
+    for room in rooms:
+        if not isinstance(room, dict):
+            continue
+        target = str(room.get("id", "")).strip()
+        token = str(room.get("room_token", "")).strip()
+        if target and target.replace("-", "").replace("_", "").isalnum() and token:
+            targets[target] = (default_credentials[0], default_credentials[1], token)
+    return targets
+
+
 @dataclass
 class ApplicationContainer:
     settings: Settings
@@ -70,8 +95,9 @@ def build_container(settings: Settings | None = None) -> ApplicationContainer:
     }
     if personal_telegram := _target("TELEGRAM", "personal", ("BOT_TOKEN", "CHAT_ID"), managed):
         telegram_targets.setdefault("personal", personal_telegram)
-    talk_targets = {
-        d.target: value
+    talk_targets: dict[str, tuple[str, str, str]] = _configured_talk_rooms(managed)
+    talk_targets.update({
+        d.target: cast(tuple[str, str, str], value)
         for j in jobs.find_all()
         for d in j.destinations
         if d.channel_type == "nextcloud_talk"
@@ -80,11 +106,11 @@ def build_container(settings: Settings | None = None) -> ApplicationContainer:
                 "NEXTCLOUD_TALK", d.target, ("USERNAME", "APP_PASSWORD", "ROOM_TOKEN"), managed
             )
         )
-    }
+    })
     if personal_talk := _target(
         "NEXTCLOUD_TALK", "personal", ("USERNAME", "APP_PASSWORD", "ROOM_TOKEN"), managed
     ):
-        talk_targets.setdefault("personal", personal_talk)
+        talk_targets.setdefault("personal", cast(tuple[str, str, str], personal_talk))
     email_targets = {
         d.target: value
         for j in jobs.find_all()
@@ -98,7 +124,7 @@ def build_container(settings: Settings | None = None) -> ApplicationContainer:
         TelegramChannel(cast(dict[str, tuple[str, str]], telegram_targets)),
         NextcloudTalkChannel(
             settings.nextcloud_url,
-            cast(dict[str, tuple[str, str, str]], talk_targets),
+            talk_targets,
             settings.nextcloud_verify_tls,
         ),
         SmtpEmailChannel(

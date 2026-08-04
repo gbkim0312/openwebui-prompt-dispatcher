@@ -294,7 +294,7 @@ window.loadInstantChannels=async function(){
       if(channel.type==='email')seenEmail.add(channel.type);
       const label=document.createElement('label'),input=document.createElement('input'),text=document.createElement('span');
       input.type='checkbox';input.className='instant-channel';input.dataset.type=channel.type;input.dataset.target=channel.target;input.style.width='auto';
-      text.textContent=channel.type==='email'?' 이메일':` ${channel.type}: ${channel.target}`;
+      text.textContent=channel.type==='email'?' 이메일':channel.type==='nextcloud_talk'?` Nextcloud Talk: ${channel.name||channel.target} (${channel.target})`:` ${channel.type}: ${channel.target}`;
       label.style.margin='0';label.style.display='flex';label.style.alignItems='center';label.append(input,text);container.append(label);
     }
     addEmailRecipientControls(container,'.instant-channel');
@@ -315,7 +315,7 @@ window.loadJobChannels=async function(selected){
       const key=`${channel.type}:${channel.target}`,itemLabel=document.createElement('label'),input=document.createElement('input'),text=document.createElement('span');
       input.type='checkbox';input.className='job-channel';input.dataset.type=channel.type;input.dataset.target=channel.type==='email'?selectedEmail:channel.target;
       input.checked=channel.type==='email'?selected.some(item=>item.type==='email'):selectedKeys.has(key);input.style.width='auto';
-      text.textContent=channel.type==='email'?' 이메일':` ${channel.type}: ${channel.target}`;
+      text.textContent=channel.type==='email'?' 이메일':channel.type==='nextcloud_talk'?` Nextcloud Talk: ${channel.name||channel.target} (${channel.target})`:` ${channel.type}: ${channel.target}`;
       itemLabel.style.margin='0';itemLabel.style.display='flex';itemLabel.style.alignItems='center';itemLabel.append(input,text);picker.append(itemLabel);
     }
     addEmailRecipientControls(picker,'.job-channel');
@@ -511,12 +511,20 @@ organizeResearchDataSources();
 .research-input-sources{margin-top:4px}
 </style><script>
 const showSettingsWithWeatherEngine=window.showSettings;
+function parseTalkRooms(raw){try{const rooms=JSON.parse(raw||'[]');return Array.isArray(rooms)?rooms.filter(room=>room&&typeof room==='object'):[]}catch(error){return[]}}
+function syncTalkRooms(){const field=$('#NEXTCLOUD_TALK_ROOMS');if(!field)return;const rooms=[...document.querySelectorAll('#talk-room-list .talk-room-card')].map(card=>({id:card.querySelector('.talk-room-id').value.trim(),name:card.querySelector('.talk-room-name').value.trim(),room_token:card.querySelector('.talk-room-token').value.trim()})).filter(room=>room.id||room.name||room.room_token);field.value=JSON.stringify(rooms)}
+function renderTalkRooms(rooms){const list=$('#talk-room-list');if(!list)return;list.replaceChildren();if(!rooms.length){list.innerHTML='<p class="muted">추가 등록된 Talk 방이 없습니다.</p>';return}for(const room of rooms){const card=document.createElement('section');card.className='talk-room-card';card.innerHTML='<div class="row" style="justify-content:space-between"><h4>Talk 방</h4><button class="danger talk-room-remove" type="button">삭제</button></div><div class="cols"><div><label>식별자</label><input class="talk-room-id" placeholder="team-news"></div><div><label>표시 이름</label><input class="talk-room-name" placeholder="팀 공지"></div><div class="wide"><label>방 토큰</label><div class="input-with-toggle"><input class="talk-room-token" type="password" autocomplete="off" placeholder="Nextcloud Talk room token"><button class="secondary talk-room-toggle" type="button" aria-label="방 토큰 표시 또는 숨김">👁</button></div></div></div>';card.querySelector('.talk-room-id').value=String(room.id||'');card.querySelector('.talk-room-name').value=String(room.name||'');card.querySelector('.talk-room-token').value=String(room.room_token||'');card.querySelector('.talk-room-remove').onclick=()=>{card.remove();syncTalkRooms();if(!list.children.length)renderTalkRooms([])};card.querySelector('.talk-room-toggle').onclick=event=>{const input=card.querySelector('.talk-room-token'),shown=input.type==='text';input.type=shown?'password':'text';event.currentTarget.textContent=shown?'👁':'🙈'};card.addEventListener('input',syncTalkRooms);list.append(card)}}
+window.addTalkRoom=function(){const field=$('#NEXTCLOUD_TALK_ROOMS');const rooms=parseTalkRooms(field?.value);rooms.push({id:'',name:'',room_token:''});renderTalkRooms(rooms);syncTalkRooms();const card=$('#talk-room-list .talk-room-card:last-child');card?.querySelector('.talk-room-id')?.focus()};
+const saveSettingsWithTalkRooms=window.saveSettings;
+window.saveSettings=async function(){syncTalkRooms();return saveSettingsWithTalkRooms()};
 for(const hint of document.querySelectorAll('aside .muted'))if(hint.textContent.includes('재시작'))hint.textContent='민감 값은 눈 버튼으로 표시하거나 숨길 수 있습니다. 저장하면 즉시 반영됩니다.';
 window.showSettings=async function(){
   await showSettingsWithWeatherEngine();
   const warning=$('#editor .warning');if(warning)warning.textContent='민감 값은 눈 버튼을 눌러 확인할 수 있습니다. Gmail은 일반 비밀번호 대신 앱 비밀번호를 사용하세요. 이 UI는 인증 없이 민감 값을 브라우저에 표시하므로 신뢰된 로컬·내부망에서만 사용하세요. 저장하면 즉시 반영됩니다.';
   const groups=$('#editor .settings-groups');if(!groups||$('#weather-engine-settings'))return;
   const data=await api('/api/settings'),engine=data.values.WEATHER_ENGINE||'open_meteo',key=data.values.KMA_SERVICE_KEY||'';
+  groups.insertAdjacentHTML('beforeend',`<section id="talk-room-settings" class="settings-group"><div class="connection-section-heading"><div><h3>추가 Nextcloud Talk 방</h3><p class="muted">위 Nextcloud Talk 사용자명·앱 비밀번호를 공통으로 사용합니다. 방마다 식별자와 방 토큰을 등록하세요.</p></div><button class="secondary" type="button" onclick="addTalkRoom()">+ 방 추가</button></div><input id="NEXTCLOUD_TALK_ROOMS" class="setting-field" type="hidden"><div id="talk-room-list"></div></section>`);
+  $('#NEXTCLOUD_TALK_ROOMS').value=data.values.NEXTCLOUD_TALK_ROOMS||'[]';renderTalkRooms(parseTalkRooms($('#NEXTCLOUD_TALK_ROOMS').value));
   sensitiveSettings.add('KMA_SERVICE_KEY');
   sensitiveSettings.add('KMA_ALERT_SERVICE_KEY');
   sensitiveSettings.add('KMA_MID_SERVICE_KEY');
@@ -551,5 +559,6 @@ window.testLocationSearch=async function(){
 #weather-engine-settings .muted{margin:4px 0 0}
 .weather-api-keys-card{display:grid;gap:10px;margin-top:14px;padding:16px;border:1px solid #dce3ea;border-radius:8px;background:#f4f8fc}
 .weather-api-keys-card h4{margin:0}.weather-api-keys-card>div label{margin-top:0}
+.talk-room-card{margin:10px 0 0;padding:14px;border:1px solid #dce3ea;border-radius:8px;background:#f8fafc}.talk-room-card h4{margin:0}.talk-room-card label{margin-top:0}
 .weather-engine-result{margin:12px 0 0;max-height:260px;overflow:auto;white-space:pre-wrap;background:#f4f8fc;border:1px solid #dce3ea;border-radius:6px;padding:10px;font:12px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace}
 </style></body></html>

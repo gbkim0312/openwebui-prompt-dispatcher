@@ -1,3 +1,4 @@
+import json
 import logging
 from datetime import timedelta
 from pathlib import Path
@@ -125,6 +126,15 @@ def create_app(container: ApplicationContainer) -> FastAPI:
             for destination in job.destinations
         }
         values = store.read_values()
+        try:
+            configured_rooms = json.loads(values.get("NEXTCLOUD_TALK_ROOMS", "[]"))
+        except json.JSONDecodeError:
+            configured_rooms = []
+        talk_names = {
+            str(room.get("id")): str(room.get("name") or room.get("id"))
+            for room in configured_rooms
+            if isinstance(room, dict) and room.get("id")
+        } if isinstance(configured_rooms, list) else {}
         if values.get("TELEGRAM_PERSONAL_BOT_TOKEN") and values.get("TELEGRAM_PERSONAL_CHAT_ID"):
             destinations.add(("telegram", "personal"))
         if all(
@@ -136,10 +146,33 @@ def create_app(container: ApplicationContainer) -> FastAPI:
             )
         ):
             destinations.add(("nextcloud_talk", "personal"))
+        try:
+            talk_rooms = json.loads(values.get("NEXTCLOUD_TALK_ROOMS", "[]"))
+        except json.JSONDecodeError:
+            talk_rooms = []
+        if isinstance(talk_rooms, list):
+            for room in talk_rooms:
+                if not isinstance(room, dict):
+                    continue
+                target = str(room.get("id", "")).strip()
+                if target and room.get("room_token") and all(
+                    values.get(key)
+                    for key in (
+                        "NEXTCLOUD_TALK_PERSONAL_USERNAME",
+                        "NEXTCLOUD_TALK_PERSONAL_APP_PASSWORD",
+                    )
+                ):
+                    destinations.add(("nextcloud_talk", target))
         if all(values.get(key) for key in ("SMTP_USERNAME", "SMTP_PASSWORD")):
             destinations.add(("email", "personal"))
         return [
-            {"type": channel_type, "target": target}
+            {
+                "type": channel_type,
+                "target": target,
+                "name": talk_names.get(target, target)
+                if channel_type == "nextcloud_talk"
+                else target,
+            }
             for channel_type, target in sorted(destinations)
             if channel_type != "fake"
         ]
