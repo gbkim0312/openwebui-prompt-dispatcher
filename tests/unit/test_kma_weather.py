@@ -102,4 +102,4 @@ def test_kma_weather_can_include_alerts_and_weekly_forecast() -> None:
 
     assert "기상특보 (서울 관할): 서울특별시 호우주의보 (202608040700)" in report
     assert "주간 예보 (서울, 202608040600 발표):" in report
-    assert "3일 후: 오전 맑음, 강수확률 10%, 최저 24°C, 최고 33°C" in report
+    assert "| 2026-08-07 (3일 후) | 맑음 / - | 10% / -% | 24°C | 33°C |" in report

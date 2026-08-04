@@ -199,14 +199,22 @@ class KmaWeather:
         if not land or not temperature:
             return ["주간 예보 (서울): 발표 자료 없음"]
         weather, temperatures = land[0], temperature[0]
-        lines = [f"주간 예보 (서울, {base} 발표):"]
+        lines = [
+            f"주간 예보 (서울, {base} 발표):",
+            "| 날짜 | 날씨 (오전 / 오후) | 강수확률 (오전 / 오후) | 최저 | 최고 |",
+            "|---|---|---|---:|---:|",
+        ]
         for day in range(3, 8):
-            weather_text = str(weather.get(f"wf{day}Am") or weather.get(f"wf{day}") or "-")
-            rain = str(weather.get(f"rnSt{day}Am") or weather.get(f"rnSt{day}") or "-")
-            minimum = str(temperatures.get(f"taMin{day}") or "-")
-            maximum = str(temperatures.get(f"taMax{day}") or "-")
+            weather_am = self._first_present(weather.get(f"wf{day}Am"), weather.get(f"wf{day}"))
+            weather_pm = self._first_present(weather.get(f"wf{day}Pm"), weather.get(f"wf{day}"))
+            rain_am = self._first_present(weather.get(f"rnSt{day}Am"), weather.get(f"rnSt{day}"))
+            rain_pm = self._first_present(weather.get(f"rnSt{day}Pm"), weather.get(f"rnSt{day}"))
+            minimum = self._first_present(temperatures.get(f"taMin{day}"))
+            maximum = self._first_present(temperatures.get(f"taMax{day}"))
+            date = (now.date() + timedelta(days=day)).isoformat()
             lines.append(
-                f"{day}일 후: 오전 {weather_text}, 강수확률 {rain}%, 최저 {minimum}°C, 최고 {maximum}°C"
+                f"| {date} ({day}일 후) | {weather_am} / {weather_pm} | "
+                f"{rain_am}% / {rain_pm}% | {minimum}°C | {maximum}°C |"
             )
         return lines
 
@@ -284,6 +292,13 @@ class KmaWeather:
     @staticmethod
     def _first_value(items: list[dict[str, Any]]) -> str:
         return str(items[0].get("fcstValue", "-")) if items else "-"
+
+    @staticmethod
+    def _first_present(*values: object) -> str:
+        for value in values:
+            if value is not None and value != "":
+                return str(value)
+        return "-"
 
     @classmethod
     def _max_value(cls, items: list[dict[str, Any]]) -> str:
