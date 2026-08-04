@@ -150,7 +150,7 @@ research:
 
 최종 프롬프트에서는 개별 결과를 `{{ research.politics }}`처럼, 모든 결과를 합친 문서는 `{{ research_context }}`처럼 참조합니다. 리서치 ID에 하이픈이 있다면 `{{ research['mobility-ai'] }}` 표기를 사용하세요. `query`와 `summary_prompt`에는 기존 Jinja 변수도 사용할 수 있습니다.
 
-UI에서 저장한 연결 키는 `data/management.env`에 저장됩니다. **키 저장 후 서비스를 재시작해야** 새 연결 설정이 적용됩니다. 이 파일은 Git에 포함되지 않습니다.
+UI에서 저장한 연결 키는 `data/management.env`에 저장되며, 저장 즉시 실행 중인 Open WebUI·채널·검색·날씨 클라이언트와 예약 스케줄에 반영됩니다. 이 파일은 Git에 포함되지 않습니다.
 
 > 보안: 이 UI는 기본적으로 인증이 없습니다. 인터넷에 직접 공개하지 말고, 내부망에서만 사용하거나 인증 프록시(VPN, SSO, Basic Auth 등) 뒤에 두세요.
 
@@ -193,7 +193,7 @@ UI에서 저장한 연결 키는 `data/management.env`에 저장됩니다. **키
 
 ### Gmail SMTP 설정
 
-Gmail 전송에는 API 키가 아니라 SMTP용 **앱 비밀번호**를 사용합니다. Google 계정에서 2단계 인증을 켠 뒤 앱 비밀번호를 발급하고, 설정 탭의 `SMTP 사용자 이메일`에 Gmail 주소, `SMTP 앱 비밀번호`에 발급받은 앱 비밀번호를 입력하세요. 서버는 `smtp.gmail.com`, 포트는 `587`, STARTTLS는 `true`로 둡니다. `수신 이메일`에 실제 받을 주소를 입력하고 저장·재시작하면 전송 채널 목록에 `email: personal`이 나타납니다.
+Gmail 전송에는 API 키가 아니라 SMTP용 **앱 비밀번호**를 사용합니다. Google 계정에서 2단계 인증을 켠 뒤 앱 비밀번호를 발급하고, 설정 탭의 `SMTP 사용자 이메일`에 Gmail 주소, `SMTP 앱 비밀번호`에 발급받은 앱 비밀번호를 입력하세요. 서버는 `smtp.gmail.com`, 포트는 `587`, STARTTLS는 `true`로 둡니다. `수신 이메일`에 실제 받을 주소를 입력하고 저장하면 전송 채널 목록에 `email: personal`이 나타납니다.
 
 예약 또는 즉시 전송 화면에서 `email: personal`을 체크하면 동일한 결과를 이메일로도 전송합니다. 수신자를 여러 명 지정할 때는 `person1@example.com, person2@example.com` 형식으로 입력하세요.
 

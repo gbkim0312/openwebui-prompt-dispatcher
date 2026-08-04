@@ -479,8 +479,10 @@ organizeResearchDataSources();
 .research-input-sources{margin-top:4px}
 </style><script>
 const showSettingsWithWeatherEngine=window.showSettings;
+for(const hint of document.querySelectorAll('aside .muted'))if(hint.textContent.includes('재시작'))hint.textContent='민감 값은 눈 버튼으로 표시하거나 숨길 수 있습니다. 저장하면 즉시 반영됩니다.';
 window.showSettings=async function(){
   await showSettingsWithWeatherEngine();
+  const warning=$('#editor .warning');if(warning)warning.textContent='민감 값은 눈 버튼을 눌러 확인할 수 있습니다. Gmail은 일반 비밀번호 대신 앱 비밀번호를 사용하세요. 이 UI는 인증 없이 민감 값을 브라우저에 표시하므로 신뢰된 로컬·내부망에서만 사용하세요. 저장하면 즉시 반영됩니다.';
   const groups=$('#editor .settings-groups');if(!groups||$('#weather-engine-settings'))return;
   const data=await api('/api/settings'),engine=data.values.WEATHER_ENGINE||'open_meteo',key=data.values.KMA_SERVICE_KEY||'';
   sensitiveSettings.add('KMA_SERVICE_KEY');

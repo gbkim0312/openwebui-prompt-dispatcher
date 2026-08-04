@@ -1,6 +1,7 @@
 import logging
 from datetime import timedelta
 from pathlib import Path
+from threading import Lock
 from typing import Any, Literal
 
 from fastapi import FastAPI, HTTPException
@@ -14,8 +15,9 @@ from prompt_dispatcher.adapters.outbound.repositories.web_management import WebM
 from prompt_dispatcher.adapters.outbound.weather.kma import KmaWeather
 from prompt_dispatcher.adapters.outbound.weather.open_meteo import OpenMeteoWeather
 from prompt_dispatcher.application.dto.commands import RunJobCommand
+from prompt_dispatcher.application.use_cases.register_schedules import RegisterSchedules
 from prompt_dispatcher.application.use_cases.send_prompt import SendPromptCommand
-from prompt_dispatcher.bootstrap.container import ApplicationContainer
+from prompt_dispatcher.bootstrap.container import ApplicationContainer, build_container
 from prompt_dispatcher.bootstrap.settings import Settings
 from prompt_dispatcher.domain.delivery import DeliveryResult, OutboundMessage
 from prompt_dispatcher.domain.enums import DeliveryStatus
@@ -57,12 +59,27 @@ class RedispatchPayload(BaseModel):
 
 def create_app(container: ApplicationContainer) -> FastAPI:
     app = FastAPI(title="prompt-dispatcher")
+    reload_lock = Lock()
     static = Path(__file__).parent / "static" / "index.html"
     store = WebManagementStore(
         container.settings.jobs_directory,
         container.settings.prompts_directory,
         container.settings.database_path.parent / "management.env",
     )
+
+    def reload_runtime() -> int:
+        """Rebuild outbound clients while preserving the running scheduler instance."""
+        nonlocal container
+        with reload_lock:
+            refreshed = build_container()
+            refreshed.scheduler = container.scheduler
+            refreshed.register_schedules = RegisterSchedules(
+                refreshed.jobs, refreshed.scheduler, refreshed.run_job
+            )
+            count = refreshed.register_schedules.execute()
+            container = refreshed
+            logger.info("event=runtime_configuration_reloaded scheduled_jobs=%s", count)
+            return count
 
     @app.get("/", include_in_schema=False)
     def dashboard() -> FileResponse:
@@ -353,13 +370,20 @@ def create_app(container: ApplicationContainer) -> FastAPI:
         return {
             "configured": sorted(key for key, value in values.items() if value),
             "values": values,
-            "restart_required": True,
+            "restart_required": False,
         }
 
     @app.put("/api/settings")
     def save_settings(payload: SecretPayload) -> dict[str, str]:
-        store.save_secrets(payload.values)
-        return {"status": "saved", "message": "Restart the service to apply connection settings."}
+        try:
+            store.save_secrets(payload.values)
+            scheduled = reload_runtime()
+        except Exception as error:
+            raise HTTPException(422, str(error)) from error
+        return {
+            "status": "saved",
+            "message": f"설정이 즉시 반영되었습니다. 예약 작업 {scheduled}개를 다시 등록했습니다.",
+        }
 
     @app.post("/api/settings/test/{channel_type}")
     def test_connection(

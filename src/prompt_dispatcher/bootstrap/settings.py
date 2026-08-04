@@ -71,7 +71,7 @@ class Settings:
         managed = _managed_values(database.parent / "management.env")
 
         def value(key: str, default: str = "") -> str:
-            return os.getenv(key) or managed.get(key, default)
+            return managed.get(key) or os.getenv(key) or default
 
         def managed_value(key: str, default: str = "") -> str:
             return managed.get(key) or os.getenv(key) or default

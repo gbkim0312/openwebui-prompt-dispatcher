@@ -74,6 +74,8 @@ class WebManagementStore:
             "SMTP_USE_TLS",
             "SMTP_PERSONAL_TO",
             "EXECUTION_RETENTION_DAYS",
+            "WEATHER_ENGINE",
+            "KMA_SERVICE_KEY",
         }
         stored: dict[str, str] = {}
         if self._secrets.exists():
@@ -82,7 +84,7 @@ class WebManagementStore:
                 for line in self._secrets.read_text(encoding="utf-8").splitlines()
                 if "=" in line
             }
-        return {key: os.getenv(key) or stored.get(key, "") for key in allowed}
+        return {key: stored.get(key) or os.getenv(key) or "" for key in allowed}
 
     def save_secrets(self, values: Mapping[str, str]) -> None:
         allowed = {
@@ -102,6 +104,8 @@ class WebManagementStore:
             "SMTP_USE_TLS",
             "SMTP_PERSONAL_TO",
             "EXECUTION_RETENTION_DAYS",
+            "WEATHER_ENGINE",
+            "KMA_SERVICE_KEY",
         }
         old = {}
         if self._secrets.exists():
