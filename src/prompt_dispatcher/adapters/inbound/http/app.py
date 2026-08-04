@@ -4,13 +4,14 @@ from pathlib import Path
 from threading import Lock
 from typing import Any, Literal
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Query
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 
 from prompt_dispatcher.adapters.outbound.channels.nextcloud_talk import NextcloudTalkChannel
 from prompt_dispatcher.adapters.outbound.channels.smtp_email import SmtpEmailChannel
 from prompt_dispatcher.adapters.outbound.channels.telegram import TelegramChannel
+from prompt_dispatcher.adapters.outbound.geocoding.kakao import KakaoGeocoder
 from prompt_dispatcher.adapters.outbound.repositories.web_management import WebManagementStore
 from prompt_dispatcher.adapters.outbound.weather.kma import KmaWeather
 from prompt_dispatcher.adapters.outbound.weather.open_meteo import OpenMeteoWeather
@@ -151,6 +152,16 @@ def create_app(container: ApplicationContainer) -> FastAPI:
             }
         except Exception as error:
             raise HTTPException(502, "Open WebUI 모델 목록을 불러올 수 없습니다.") from error
+
+    @app.get("/api/locations/search")
+    def search_locations(query: str = Query(min_length=2, max_length=120)) -> list[dict[str, str | float]]:
+        try:
+            return KakaoGeocoder(Settings.from_environment().kakao_rest_api_key).search(query)
+        except ValueError as error:
+            raise HTTPException(422, str(error)) from error
+        except Exception as error:
+            logger.warning("event=location_search_failed error_type=%s", type(error).__name__)
+            raise HTTPException(502, "지역 검색에 실패했습니다.") from error
 
     @app.post("/api/models/refresh")
     def refresh_models() -> dict[str, object]:

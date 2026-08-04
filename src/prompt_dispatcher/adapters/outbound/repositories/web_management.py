@@ -78,6 +78,7 @@ class WebManagementStore:
             "KMA_SERVICE_KEY",
             "KMA_ALERT_SERVICE_KEY",
             "KMA_MID_SERVICE_KEY",
+            "KAKAO_REST_API_KEY",
         }
         stored: dict[str, str] = {}
         if self._secrets.exists():
@@ -110,6 +111,7 @@ class WebManagementStore:
             "KMA_SERVICE_KEY",
             "KMA_ALERT_SERVICE_KEY",
             "KMA_MID_SERVICE_KEY",
+            "KAKAO_REST_API_KEY",
         }
         old = {}
         if self._secrets.exists():

@@ -63,6 +63,7 @@ class Settings:
     kma_service_key: str
     kma_alert_service_key: str
     kma_mid_service_key: str
+    kakao_rest_api_key: str
 
     @classmethod
     def from_environment(cls) -> "Settings":
@@ -107,4 +108,5 @@ class Settings:
             managed_value("KMA_SERVICE_KEY"),
             managed_value("KMA_ALERT_SERVICE_KEY"),
             managed_value("KMA_MID_SERVICE_KEY"),
+            managed_value("KAKAO_REST_API_KEY"),
         )
