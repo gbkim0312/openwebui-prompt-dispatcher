@@ -65,6 +65,8 @@ class ResearchTask:
     # weekday names: mon through sun.
     days_of_week: tuple[str, ...] = ()
     include_raw_content: bool = False
+    use_web_search: bool = True
+    weather_sources: "tuple[WeatherSource, ...]" = ()
 
 
 @dataclass(frozen=True)

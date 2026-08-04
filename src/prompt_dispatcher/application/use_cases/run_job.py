@@ -145,25 +145,36 @@ class RunJob:
                         task.id,
                         task_model,
                     )
-                    search_query = self._renderer.render(task.query, variables)
                     summary_instruction = self._renderer.render(
                         task.summary_prompt
                         or f"{task.name} 관련 검색 결과를 한국어로 핵심 사실과 출처 중심으로 요약하세요.",
                         variables,
                     )
-                    research_prompt, _ = enrich_with_tavily(
-                        summary_instruction,
-                        ("web_search_with_tavily",),
-                        self._tavily,
-                        task.time_range,
-                        search_query,
-                        task.topic,
-                        task.search_depth,
-                        task.max_results,
-                        task.include_domains,
-                        task.exclude_domains,
-                        task.include_raw_content,
-                    )
+                    weather_context: list[str] = []
+                    for source in task.weather_sources:
+                        if self._weather is None:
+                            raise ValueError("Weather service is not configured")
+                        weather_context.append(self._weather.fetch(source))
+                    research_prompt = summary_instruction
+                    if weather_context:
+                        research_prompt += "\n\n--- 구조화 날씨 데이터 ---\n" + "\n\n".join(
+                            weather_context
+                        )
+                    if task.use_web_search:
+                        search_query = self._renderer.render(task.query, variables)
+                        research_prompt, _ = enrich_with_tavily(
+                            research_prompt,
+                            ("web_search_with_tavily",),
+                            self._tavily,
+                            task.time_range,
+                            search_query,
+                            task.topic,
+                            task.search_depth,
+                            task.max_results,
+                            task.include_domains,
+                            task.exclude_domains,
+                            task.include_raw_content,
+                        )
                     response = self._openwebui.generate(OpenWebUiRequest(task_model, research_prompt))
                     if not response.content.strip():
                         raise ValueError(f"Research task returned empty content: {task.id}")

@@ -318,3 +318,44 @@ def test_run_job_injects_weather_source_into_prompt() -> None:
 
     assert result.status == ExecutionStatus.SUCCESS
     assert client.requests[0].prompt.count("서울 날씨") == 2
+
+
+def test_weather_only_research_does_not_require_tavily() -> None:
+    class FakeWeather:
+        def fetch(self, _: WeatherSource) -> str:
+            return "서울 날씨\n현재: 맑음"
+
+    job = Job(
+        "weather-research",
+        "Weather research",
+        True,
+        Schedule("0 7 * * *", "UTC"),
+        OpenWebUiOptions("model"),
+        PromptDefinition(text="{{ research.today_weather }}"),
+        (ChannelDestination("fake", "one"),),
+        research_tasks=(
+            ResearchTask(
+                "today_weather",
+                "오늘 날씨",
+                "",
+                weather_sources=(WeatherSource("seoul", "서울", 37.5665, 126.9780),),
+                use_web_search=False,
+            ),
+        ),
+    )
+    client = FakeOpenWebUiClient("최종 결과")
+
+    result = RunJob(
+        InMemoryJobRepository([job]),
+        FakePromptLoader(),
+        JinjaTemplateRenderer(),
+        client,
+        InMemoryExecutionRepository(),
+        ChannelResolver([FakeMessageChannel()]),
+        FakeClock(datetime(2026, 1, 1, tzinfo=UTC)),
+        weather=FakeWeather(),  # type: ignore[arg-type]
+    ).execute(RunJobCommand("weather-research"))
+
+    assert result.status == ExecutionStatus.SUCCESS
+    assert len(client.requests) == 2
+    assert "구조화 날씨 데이터" in client.requests[0].prompt

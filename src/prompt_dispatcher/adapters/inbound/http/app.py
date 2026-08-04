@@ -213,6 +213,20 @@ def create_app(container: ApplicationContainer) -> FastAPI:
                             "enabled": task.enabled,
                             "days_of_week": list(task.days_of_week),
                             "include_raw_content": task.include_raw_content,
+                            "use_web_search": task.use_web_search,
+                            "weather_sources": [
+                                {
+                                    "id": source.id,
+                                    "name": source.name,
+                                    "latitude": source.latitude,
+                                    "longitude": source.longitude,
+                                    "timezone": source.timezone,
+                                    "include_current": source.include_current,
+                                    "include_daily": source.include_daily,
+                                    "forecast_days": source.forecast_days,
+                                }
+                                for source in task.weather_sources
+                            ],
                         }
                         for task in job.research_tasks
                     ],

@@ -59,6 +59,7 @@ class OpenMeteoWeather:
                     f"강수확률 {self._at(daily, 'precipitation_probability_max', index)}%"
                 )
         lines.append(f"기준 시각: {datetime.now(ZoneInfo(source.timezone)).isoformat(timespec='minutes')}")
+        lines.append(f"출처: Open-Meteo — {response.url}")
         return "\n".join(lines)
 
     def _condition(self, value: object) -> str:

@@ -1,3 +1,5 @@
+from textwrap import dedent
+
 from prompt_dispatcher.adapters.outbound.repositories.yaml_job import YamlJobRepository
 
 
@@ -90,3 +92,41 @@ research:
     assert repository.errors == []
     assert repository.find_all()[0].research_tasks[0].days_of_week == ("mon", "fri")
     assert repository.find_all()[0].research_tasks[0].include_raw_content is True
+
+
+def test_weather_only_research_task_is_loaded(tmp_path) -> None:
+    content = dedent(
+        """\
+        version: 1
+        id: weather
+        schedule:
+          cron: "0 7 * * *"
+          timezone: Asia/Seoul
+        openwebui:
+          model: test-model
+        prompt:
+          text: hello
+        delivery:
+          channels:
+            - type: fake
+              target: one
+        research:
+          tasks:
+            - id: today_weather
+              name: 오늘 날씨
+              use_web_search: false
+              weather_sources:
+                - id: seoul
+                  name: 서울
+                  latitude: 37.5665
+                  longitude: 126.9780
+        """
+    )
+    (tmp_path / "weather.job.yaml").write_text(content, encoding="utf-8")
+
+    repository = YamlJobRepository(tmp_path)
+
+    assert repository.errors == []
+    task = repository.find_all()[0].research_tasks[0]
+    assert task.use_web_search is False
+    assert task.weather_sources[0].id == "seoul"

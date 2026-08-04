@@ -162,8 +162,14 @@ class YamlJobRepository:
                 "research task id may use letters, numbers, hyphens, and underscores only"
             )
         query = str(raw.get("query", ""))
-        if not query:
-            raise JobValidationError("research task query is required")
+        use_web_search = bool(raw.get("use_web_search", True))
+        weather_sources = tuple(
+            YamlJobRepository._map_weather_source(item) for item in raw.get("weather_sources", [])
+        )
+        if use_web_search and not query:
+            raise JobValidationError("research task query is required when web search is enabled")
+        if not use_web_search and not weather_sources:
+            raise JobValidationError("research task must enable web search or add a weather source")
         time_range = str(raw.get("time_range", "day"))
         topic = str(raw.get("topic", "news"))
         depth = str(raw.get("search_depth", "basic"))
@@ -199,6 +205,8 @@ class YamlJobRepository:
             bool(raw.get("enabled", True)),
             days_of_week,
             bool(raw.get("include_raw_content", False)),
+            use_web_search,
+            weather_sources,
         )
 
     def find_all(self) -> list[Job]:
