@@ -76,6 +76,8 @@ class WebManagementStore:
             "EXECUTION_RETENTION_DAYS",
             "WEATHER_ENGINE",
             "KMA_SERVICE_KEY",
+            "KMA_ALERT_SERVICE_KEY",
+            "KMA_MID_SERVICE_KEY",
         }
         stored: dict[str, str] = {}
         if self._secrets.exists():
@@ -106,6 +108,8 @@ class WebManagementStore:
             "EXECUTION_RETENTION_DAYS",
             "WEATHER_ENGINE",
             "KMA_SERVICE_KEY",
+            "KMA_ALERT_SERVICE_KEY",
+            "KMA_MID_SERVICE_KEY",
         }
         old = {}
         if self._secrets.exists():

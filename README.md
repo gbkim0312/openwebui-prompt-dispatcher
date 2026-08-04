@@ -178,6 +178,8 @@ UI에서 저장한 연결 키는 `data/management.env`에 저장되며, 저장 �
 | `TAVILY_API_KEY` | 빈 값 | `Web Search with Tavily` 선택 시 디스패처가 직접 호출할 Tavily API 키입니다. `tvly-`로 시작하는 비밀값이며 Git에 저장하지 마세요. |
 | `WEATHER_ENGINE` | `open_meteo` | 날씨 데이터 제공자입니다. `open_meteo` 또는 `kma`를 사용합니다. UI에서 저장한 값이 우선 적용됩니다. |
 | `KMA_SERVICE_KEY` | 빈 값 | `WEATHER_ENGINE=kma`일 때 필요한 공공데이터포털 기상청 단기예보 조회서비스의 **일반 인증키**입니다. Encoding·Decoding 형태 모두 사용할 수 있으며, 민감값이므로 Git에 저장하지 마세요. |
+| `KMA_ALERT_SERVICE_KEY` | 빈 값 | 기상특보 조회서비스 전용 일반 인증키입니다. 비우면 `KMA_SERVICE_KEY`를 사용합니다. |
+| `KMA_MID_SERVICE_KEY` | 빈 값 | 중기예보 조회서비스 전용 일반 인증키입니다. 비우면 `KMA_SERVICE_KEY`를 사용합니다. |
 | `EXECUTION_RETENTION_DAYS` | `30` | 실행 이력과 최종 응답을 DB에 보관할 일수입니다. 기간이 지난 기록과 전송 이력은 다음 작업 실행 시 자동 삭제됩니다. |
 | `TELEGRAM_PERSONAL_BOT_TOKEN` | 빈 값 | `target: personal` Telegram 채널의 Bot Token입니다. target이 `team-alert`라면 `TELEGRAM_TEAM_ALERT_BOT_TOKEN` 형식을 사용합니다. |
 | `TELEGRAM_PERSONAL_CHAT_ID` | 빈 값 | 해당 Telegram target의 Chat ID입니다. target 별칭 규칙은 Bot Token과 같습니다. |

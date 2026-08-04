@@ -122,7 +122,11 @@ def build_container(settings: Settings | None = None) -> ApplicationContainer:
     executions = SqliteExecutionRepository(settings.database_path)
     resolver = ChannelResolver(channels)
     weather = (
-        KmaWeather(settings.kma_service_key)
+        KmaWeather(
+            settings.kma_service_key,
+            alert_service_key=settings.kma_alert_service_key or settings.kma_service_key,
+            mid_service_key=settings.kma_mid_service_key or settings.kma_service_key,
+        )
         if settings.weather_engine == "kma"
         else OpenMeteoWeather()
     )

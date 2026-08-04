@@ -32,8 +32,12 @@ class KmaWeather:
         service_key: str,
         client: httpx.Client | None = None,
         now: Callable[[], datetime] | None = None,
+        alert_service_key: str = "",
+        mid_service_key: str = "",
     ) -> None:
         self._service_key = service_key
+        self._alert_service_key = alert_service_key or service_key
+        self._mid_service_key = mid_service_key or service_key
         self._client = client or httpx.Client()
         self._now = now or (lambda: datetime.now(ZoneInfo("Asia/Seoul")))
 
@@ -127,7 +131,12 @@ class KmaWeather:
     def _alerts(self, now: datetime) -> list[str]:
         items = self._request_endpoint(
             self._warning_url,
-            {"stnId": 108, "fromTmFc": (now - timedelta(days=1)).strftime("%Y%m%d"), "toTmFc": now.strftime("%Y%m%d")},
+            {
+                "stnId": 108,
+                "fromTmFc": (now - timedelta(days=1)).strftime("%Y%m%d"),
+                "toTmFc": now.strftime("%Y%m%d"),
+            },
+            service_key=self._alert_service_key,
         )
         if not items:
             return ["기상특보 (서울 관할): 최근 24시간 발표된 특보 없음"]
@@ -141,10 +150,14 @@ class KmaWeather:
     def _weekly(self, now: datetime) -> list[str]:
         base = self._mid_base(now).strftime("%Y%m%d%H%M")
         land = self._request_endpoint(
-            f"{self._mid_base_url}/getMidLandFcst", {"regId": "11B00000", "tmFc": base}
+            f"{self._mid_base_url}/getMidLandFcst",
+            {"regId": "11B00000", "tmFc": base},
+            service_key=self._mid_service_key,
         )
         temperature = self._request_endpoint(
-            f"{self._mid_base_url}/getMidTa", {"regId": "11B10101", "tmFc": base}
+            f"{self._mid_base_url}/getMidTa",
+            {"regId": "11B10101", "tmFc": base},
+            service_key=self._mid_service_key,
         )
         if not land or not temperature:
             return ["주간 예보 (서울): 발표 자료 없음"]
@@ -170,12 +183,16 @@ class KmaWeather:
         )
 
     def _request_endpoint(
-        self, url: str, parameters: dict[str, str | int], rows: int = 100
+        self,
+        url: str,
+        parameters: dict[str, str | int],
+        rows: int = 100,
+        service_key: str | None = None,
     ) -> list[dict[str, Any]]:
         response = self._client.get(
             url,
             params={
-                "serviceKey": unquote(self._service_key),
+                "serviceKey": unquote(service_key or self._service_key),
                 "pageNo": 1,
                 "numOfRows": rows,
                 "dataType": "JSON",

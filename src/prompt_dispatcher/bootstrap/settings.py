@@ -61,6 +61,8 @@ class Settings:
     smtp_use_tls: bool
     weather_engine: str
     kma_service_key: str
+    kma_alert_service_key: str
+    kma_mid_service_key: str
 
     @classmethod
     def from_environment(cls) -> "Settings":
@@ -103,4 +105,6 @@ class Settings:
             _truth(value("SMTP_USE_TLS", "true")),
             weather_engine,
             managed_value("KMA_SERVICE_KEY"),
+            managed_value("KMA_ALERT_SERVICE_KEY"),
+            managed_value("KMA_MID_SERVICE_KEY"),
         )
