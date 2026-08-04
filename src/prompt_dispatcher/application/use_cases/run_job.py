@@ -1,7 +1,7 @@
 import logging
 import re
 import time
-from datetime import timedelta
+from datetime import datetime, timedelta
 from uuid import uuid4
 
 from prompt_dispatcher.adapters.outbound.search.tavily import TavilySearch
@@ -64,11 +64,16 @@ class RunJob:
         self._weather = weather
 
     def execute(self, command: RunJobCommand) -> RunJobResult:
+        available_models: set[str] | None = None
         if self._model_catalog is not None:
             try:
                 self._model_catalog.refresh()
+                available_models = set(self._model_catalog.list_models())
             except Exception:
-                logger.warning("Model catalog refresh failed; using the previous cache")
+                logger.warning(
+                    "event=model_preflight_failed job_id=%s reason=model_catalog_unavailable",
+                    command.job_id,
+                )
         job = self._jobs.find_by_id(command.job_id)
         if job is None:
             raise JobNotFoundError(f"Job not found: {command.job_id}")
@@ -87,6 +92,8 @@ class RunJob:
             logger.info("event=job_skipped job_id=%s reason=duplicate_schedule", job.id)
             return RunJobResult(None, ExecutionStatus.SKIPPED, "Duplicate scheduled execution")
         try:
+            if not command.skip_openwebui:
+                self._assert_models_available(job, scheduled, available_models)
             template = self._prompts.load(job.prompt_definition)
             variables = dict(job.prompt_definition.variables) | {
                 "job_id": job.id,
@@ -346,6 +353,43 @@ class RunJob:
             "event=job_completed job_id=%s execution_id=%s status=%s", job.id, execution.id, status
         )
         return RunJobResult(execution.id, status)
+
+    def _assert_models_available(
+        self, job: Job, scheduled_time: datetime, available_models: set[str] | None
+    ) -> None:
+        """Fail before paid external research when the selected Open WebUI model is unavailable."""
+        if self._model_catalog is None:
+            return
+        if available_models is None:
+            raise OpenWebUiError(
+                "Open WebUI model availability could not be verified; Tavily search was not started"
+            )
+
+        current_day = ("mon", "tue", "wed", "thu", "fri", "sat", "sun")[
+            scheduled_time.weekday()
+        ]
+        required: list[tuple[str, str]] = [("최종 작업", job.openwebui_options.model)]
+        for task in job.research_tasks:
+            if not task.enabled or not task.use_prompt:
+                continue
+            if task.days_of_week and current_day not in task.days_of_week:
+                continue
+            model = job.openwebui_options.model if job.research_use_parent_model else task.model
+            if not model:
+                raise ValueError(f"Research task model is required: {task.id}")
+            required.append((f"리서치 {task.name}", model))
+
+        unavailable = [f"{label} ({model})" for label, model in required if model not in available_models]
+        if unavailable:
+            raise OpenWebUiError(
+                "Open WebUI model not available; Tavily search was not started: "
+                + ", ".join(unavailable)
+            )
+        logger.info(
+            "event=model_preflight_succeeded job_id=%s model_count=%s",
+            job.id,
+            len(required),
+        )
 
     def _generate_with_retry(self, request: OpenWebUiRequest, job: Job) -> OpenWebUiResponse:
         policy = job.execution_policy

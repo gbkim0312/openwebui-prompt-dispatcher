@@ -71,6 +71,46 @@ def test_run_job_does_not_retry_non_transient_bad_request() -> None:
     assert not RunJob._is_retryable_openwebui_error(OpenWebUiError("HTTP 400: invalid request"))
 
 
+def test_run_job_checks_model_before_tavily_search() -> None:
+    class FakeCatalog:
+        revision = "test"
+
+        def refresh(self) -> bool:
+            return False
+
+        def list_models(self) -> tuple[str, ...]:
+            return ("other-model",)
+
+    class NeverCalledTavily:
+        def search(self, *_: object) -> tuple[tuple[str, str, str], ...]:
+            raise AssertionError("Tavily must not be called for an unavailable model")
+
+    job = Job(
+        "preflight",
+        "Preflight",
+        True,
+        Schedule("0 7 * * *", "UTC"),
+        OpenWebUiOptions("missing-model"),
+        PromptDefinition(text="hello"),
+        (ChannelDestination("fake", "one"),),
+        research_tasks=(ResearchTask("news", "뉴스", "latest news"),),
+    )
+    result = RunJob(
+        InMemoryJobRepository([job]),
+        FakePromptLoader(),
+        JinjaTemplateRenderer(),
+        FakeOpenWebUiClient(),
+        InMemoryExecutionRepository(),
+        ChannelResolver([FakeMessageChannel()]),
+        FakeClock(datetime(2026, 1, 1, tzinfo=UTC)),
+        model_catalog=FakeCatalog(),
+        tavily=NeverCalledTavily(),  # type: ignore[arg-type]
+    ).execute(RunJobCommand("preflight"))
+
+    assert result.status == ExecutionStatus.FAILED
+    assert "Tavily search was not started" in result.message
+
+
 def test_run_job_delivers_and_records_success() -> None:
     job = Job(
         "news",
