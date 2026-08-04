@@ -74,13 +74,15 @@ class KmaWeather:
         except Exception as error:
             lines.append(f"시간대별 초단기 예보: 조회 실패 ({type(error).__name__})")
         try:
-            for forecast in self._daily(now, nx, ny, source.forecast_days):
+            village_items = self._village_items(now, nx, ny)
+            for forecast in self._daily(village_items, source.forecast_days):
                 lines.append(
                     f"일일 예보 ({forecast['date']}): 날씨 상태 {forecast['condition']}; "
                     f"최저 {forecast.get('min_temperature', '-')}°C, "
                     f"최고 {forecast.get('max_temperature', '-')}°C; "
                     f"일 최대 강수확률 {forecast.get('precipitation_probability', '-')}%"
                 )
+            lines.extend(self._later_today_hourly(now, village_items))
         except Exception as error:
             lines.append(f"단기 예보: 조회 실패 ({type(error).__name__})")
         try:
@@ -113,9 +115,13 @@ class KmaWeather:
             "wind_speed": values.get("WSD", "-"),
         }
 
-    def _daily(self, now: datetime, nx: int, ny: int, days: int) -> list[dict[str, str]]:
+    def _village_items(self, now: datetime, nx: int, ny: int) -> list[dict[str, Any]]:
         base = self._forecast_base(now)
-        items = self._request("getVilageFcst", base.strftime("%Y%m%d"), base.strftime("%H00"), nx, ny, 1000)
+        return self._request(
+            "getVilageFcst", base.strftime("%Y%m%d"), base.strftime("%H00"), nx, ny, 1000
+        )
+
+    def _daily(self, items: list[dict[str, Any]], days: int) -> list[dict[str, str]]:
         grouped: dict[str, list[dict[str, Any]]] = defaultdict(list)
         for item in items:
             date = item.get("fcstDate")
@@ -138,6 +144,36 @@ class KmaWeather:
                 }
             )
         return forecasts
+
+    def _later_today_hourly(self, now: datetime, items: list[dict[str, Any]]) -> list[str]:
+        grouped: dict[tuple[str, str], dict[str, str]] = defaultdict(dict)
+        for item in items:
+            date, time, category = item.get("fcstDate"), item.get("fcstTime"), item.get("category")
+            if isinstance(date, str) and isinstance(time, str) and isinstance(category, str):
+                grouped[(date, time)][category] = str(item.get("fcstValue", "-"))
+        cutoff = (now + timedelta(hours=6)).strftime("%H%M")
+        today = now.strftime("%Y%m%d")
+        candidates = [
+            ((date, time), values)
+            for (date, time), values in sorted(grouped.items())
+            if date == today and time >= cutoff
+        ][:3]
+        if not candidates:
+            return []
+        lines = ["시간대별 단기 예보 (초단기예보 이후):"]
+        for (_, time), values in candidates:
+            precipitation = self._number(values.get("PTY", "0"))
+            condition = (
+                self._precipitation_types.get(precipitation, "강수")
+                if precipitation
+                else self._sky_conditions.get(self._number(values.get("SKY", "0")), "알 수 없음")
+            )
+            lines.append(
+                f"{time[:2]}:{time[2:]}: {condition}; 기온 {values.get('TMP', '-')}°C, "
+                f"강수확률 {values.get('POP', '-')}%, 습도 {values.get('REH', '-')}%, "
+                f"바람 {values.get('WSD', '-')}m/s"
+            )
+        return lines
 
     def _hourly(self, now: datetime, nx: int, ny: int) -> list[str]:
         base = self._ultra_forecast_base(now)

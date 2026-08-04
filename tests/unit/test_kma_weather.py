@@ -63,6 +63,8 @@ def test_kma_weather_formats_current_and_daily_forecast() -> None:
     assert "일일 예보 (2026-08-05): 날씨 상태 비;" in report
     assert "시간대별 초단기 예보 (2026-08-04 06:30 발표):" in report
     assert "2026-08-04 08:00: 맑음; 기온 30°C, 강수확률 10%" in report
+    assert "시간대별 단기 예보 (초단기예보 이후):" in report
+    assert "15:00: 알 수 없음; 기온 -°C, 강수확률 -%" in report
 
 
 def test_kma_weather_can_include_alerts_and_weekly_forecast() -> None:
