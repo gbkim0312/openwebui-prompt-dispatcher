@@ -23,6 +23,7 @@ from prompt_dispatcher.domain.job import (
     PromptDefinition,
     ResearchTask,
     Schedule,
+    WeatherSource,
 )
 
 
@@ -284,3 +285,36 @@ def test_run_job_omits_weekday_skipped_research_from_combined_context() -> None:
     assert result.status == ExecutionStatus.SUCCESS
     assert len(client.requests) == 2
     assert "요약 결과" in client.requests[-1].prompt
+
+
+def test_run_job_injects_weather_source_into_prompt() -> None:
+    class FakeWeather:
+        def fetch(self, source: WeatherSource) -> str:
+            assert source.id == "seoul"
+            return "서울 날씨\n현재: 맑음, 25°C"
+
+    job = Job(
+        "weather",
+        "Weather",
+        True,
+        Schedule("0 7 * * *", "UTC"),
+        OpenWebUiOptions("model"),
+        PromptDefinition(text="{{ weather.seoul }}\n---\n{{ weather_context }}"),
+        (ChannelDestination("fake", "one"),),
+        weather_sources=(WeatherSource("seoul", "서울", 37.5665, 126.9780),),
+    )
+    client = FakeOpenWebUiClient("최종 결과")
+
+    result = RunJob(
+        InMemoryJobRepository([job]),
+        FakePromptLoader(),
+        JinjaTemplateRenderer(),
+        client,
+        InMemoryExecutionRepository(),
+        ChannelResolver([FakeMessageChannel()]),
+        FakeClock(datetime(2026, 1, 1, tzinfo=UTC)),
+        weather=FakeWeather(),  # type: ignore[arg-type]
+    ).execute(RunJobCommand("weather"))
+
+    assert result.status == ExecutionStatus.SUCCESS
+    assert client.requests[0].prompt.count("서울 날씨") == 2

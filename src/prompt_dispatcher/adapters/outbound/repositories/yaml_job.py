@@ -14,6 +14,7 @@ from prompt_dispatcher.domain.job import (
     PromptDefinition,
     ResearchTask,
     Schedule,
+    WeatherSource,
 )
 
 
@@ -40,13 +41,14 @@ class YamlJobRepository:
     def _map(self, raw: dict[str, Any]) -> Job:
         if raw.get("version") != 1:
             raise JobValidationError("version must be 1")
-        schedule, prompt, delivery, execution, webui, research = (
+        schedule, prompt, delivery, execution, webui, research, context_sources = (
             raw.get("schedule", {}),
             raw.get("prompt", {}),
             raw.get("delivery", {}),
             raw.get("execution", {}),
             raw.get("openwebui", {}),
             raw.get("research", {}),
+            raw.get("context_sources", {}),
         )
         cron = str(schedule.get("cron", ""))
         fields = cron.split()
@@ -112,6 +114,42 @@ class YamlJobRepository:
             ),
             tuple(self._map_research_task(item) for item in research.get("tasks", [])),
             bool(research.get("use_parent_model", True)),
+            tuple(self._map_weather_source(item) for item in context_sources.get("weather", [])),
+        )
+
+    @staticmethod
+    def _map_weather_source(raw: object) -> WeatherSource:
+        if not isinstance(raw, dict):
+            raise JobValidationError("context_sources.weather must contain objects")
+        source_id = str(raw.get("id", ""))
+        if not source_id or not source_id.replace("_", "").replace("-", "").isalnum():
+            raise JobValidationError("weather source id may use letters, numbers, hyphens, and underscores only")
+        try:
+            latitude, longitude = float(raw["latitude"]), float(raw["longitude"])
+        except (KeyError, TypeError, ValueError) as exc:
+            raise JobValidationError("weather source latitude and longitude are required") from exc
+        if not -90 <= latitude <= 90 or not -180 <= longitude <= 180:
+            raise JobValidationError("weather source latitude or longitude is out of range")
+        timezone = str(raw.get("timezone", "Asia/Seoul"))
+        try:
+            ZoneInfo(timezone)
+        except Exception as exc:
+            raise JobValidationError("weather source timezone must be valid IANA name") from exc
+        days = int(raw.get("forecast_days", 2))
+        if not 1 <= days <= 7:
+            raise JobValidationError("weather source forecast_days must be between 1 and 7")
+        current, daily = bool(raw.get("include_current", True)), bool(raw.get("include_daily", True))
+        if not current and not daily:
+            raise JobValidationError("weather source must include current or daily forecast")
+        return WeatherSource(
+            source_id,
+            str(raw.get("name") or source_id),
+            latitude,
+            longitude,
+            timezone,
+            current,
+            daily,
+            days,
         )
 
     @staticmethod

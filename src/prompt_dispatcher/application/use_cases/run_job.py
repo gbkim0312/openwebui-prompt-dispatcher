@@ -12,6 +12,7 @@ from prompt_dispatcher.application.ports import (
     OpenWebUiPort,
     PromptLoaderPort,
     TemplateRendererPort,
+    WeatherPort,
 )
 from prompt_dispatcher.application.ports.model_catalog import ModelCatalogPort
 from prompt_dispatcher.application.services.channel_resolver import ChannelResolver
@@ -42,6 +43,7 @@ class RunJob:
         model_catalog: ModelCatalogPort | None = None,
         tavily: TavilySearch | None = None,
         retention_days: int = 30,
+        weather: WeatherPort | None = None,
     ) -> None:
         self._jobs, self._prompts, self._renderer = job_repository, prompt_loader, template_renderer
         self._openwebui, self._executions, self._channels, self._clock = (
@@ -53,6 +55,7 @@ class RunJob:
         self._model_catalog = model_catalog
         self._tavily = tavily
         self._retention_days = retention_days
+        self._weather = weather
 
     def execute(self, command: RunJobCommand) -> RunJobResult:
         if self._model_catalog is not None:
@@ -88,6 +91,30 @@ class RunJob:
                 "current_datetime": now.isoformat(),
                 "timezone": job.schedule.timezone,
             }
+            weather_results: dict[str, str] = {}
+            for source in job.weather_sources:
+                try:
+                    if self._weather is None:
+                        raise ValueError("Weather service is not configured")
+                    logger.info(
+                        "event=weather_source_started job_id=%s execution_id=%s source_id=%s",
+                        job.id,
+                        execution.id,
+                        source.id,
+                    )
+                    weather_results[source.id] = self._weather.fetch(source)
+                except Exception as error:
+                    weather_results[source.id] = f"[날씨 정보를 가져오지 못했습니다: {source.name}]"
+                    logger.warning(
+                        "event=weather_source_failed job_id=%s execution_id=%s source_id=%s error_type=%s",
+                        job.id,
+                        execution.id,
+                        source.id,
+                        type(error).__name__,
+                    )
+            if weather_results:
+                variables["weather"] = weather_results
+                variables["weather_context"] = "\n\n".join(weather_results.values())
             research_results: dict[str, str] = {}
             research_failures: dict[str, str] = {}
             for task in job.research_tasks:

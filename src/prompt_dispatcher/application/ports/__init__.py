@@ -7,6 +7,7 @@ from .openwebui import OpenWebUiPort
 from .prompt_loader import PromptLoaderPort
 from .scheduler import SchedulerPort
 from .template_renderer import TemplateRendererPort
+from .weather import WeatherPort
 
 __all__ = [
     "ClockPort",
@@ -18,4 +19,5 @@ __all__ = [
     "PromptLoaderPort",
     "SchedulerPort",
     "TemplateRendererPort",
+    "WeatherPort",
 ]

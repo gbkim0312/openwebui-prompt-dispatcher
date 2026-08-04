@@ -218,6 +218,21 @@ def create_app(container: ApplicationContainer) -> FastAPI:
                     ],
                     "use_parent_model": job.research_use_parent_model,
                 },
+                "context_sources": {
+                    "weather": [
+                        {
+                            "id": source.id,
+                            "name": source.name,
+                            "latitude": source.latitude,
+                            "longitude": source.longitude,
+                            "timezone": source.timezone,
+                            "include_current": source.include_current,
+                            "include_daily": source.include_daily,
+                            "forecast_days": source.forecast_days,
+                        }
+                        for source in job.weather_sources
+                    ]
+                },
             },
             "prompt": store.read_prompt(job_id),
         }

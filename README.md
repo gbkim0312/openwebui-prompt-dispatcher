@@ -104,6 +104,32 @@ python3 -m venv .venv
 
 검색 고급 설정에서는 주제(뉴스·일반·금융), 검색 깊이, 결과 수(1~20), 포함 도메인, 제외 도메인을 설정할 수 있습니다. 기본값은 뉴스·기본 깊이·8개 결과이며, 고급 깊이는 Tavily API 크레딧을 더 사용합니다.
 
+### 날씨 데이터 주입
+
+예약 작업의 **날씨 데이터**에서 위치를 추가하면 Open-Meteo의 현재 날씨와 일별 예보를 프롬프트에 직접 주입합니다. API 키는 필요하지 않습니다. 변수명으로 개별 위치를, `weather_context`로 모든 위치의 결과를 참조합니다.
+
+```jinja2
+서울 날씨: {{ weather.seoul }}
+
+전체 날씨 정보:
+{{ weather_context }}
+```
+
+YAML로 작성할 때는 다음과 같습니다.
+
+```yaml
+context_sources:
+  weather:
+    - id: seoul
+      name: 서울
+      latitude: 37.5665
+      longitude: 126.9780
+      timezone: Asia/Seoul
+      include_current: true
+      include_daily: true
+      forecast_days: 2
+```
+
 ### 상위 작업: 여러 리서치 요약을 하나의 메시지로 합치기
 
 예약 작업 편집 화면의 **상위 작업: 리서치 작업**에는 JSON 배열로 여러 검색 작업을 등록할 수 있습니다. 각 작업은 `Tavily 검색 → 모델 요약`을 독립적으로 수행하고, 모든 요약이 끝난 뒤 최종 프롬프트를 한 번 실행해 채널에는 하나의 메시지만 전송합니다.

@@ -68,6 +68,18 @@ class ResearchTask:
 
 
 @dataclass(frozen=True)
+class WeatherSource:
+    id: str
+    name: str
+    latitude: float
+    longitude: float
+    timezone: str = "Asia/Seoul"
+    include_current: bool = True
+    include_daily: bool = True
+    forecast_days: int = 2
+
+
+@dataclass(frozen=True)
 class Job:
     id: str
     name: str
@@ -79,6 +91,7 @@ class Job:
     execution_policy: ExecutionPolicy = field(default_factory=ExecutionPolicy)
     research_tasks: tuple[ResearchTask, ...] = ()
     research_use_parent_model: bool = True
+    weather_sources: tuple[WeatherSource, ...] = ()
 
 
 @dataclass(frozen=True)
