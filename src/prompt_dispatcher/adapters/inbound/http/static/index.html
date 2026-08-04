@@ -100,8 +100,12 @@ new MutationObserver(labelResearchCards).observe(document.body,{childList:true,s
 labelResearchCards();
 </script><style>
 #research-task-list .research-collapsed>.cols{display:none}
-#research-task-list .research-toggle{margin-left:auto}
-.research-model-summary{font-size:13px;color:#69798c;white-space:nowrap}
+#research-task-list .settings-group>.row{align-items:center}
+#research-task-list .settings-group>.row>h3{order:0}
+#research-task-list .settings-group>.row>label{order:0}
+#research-task-list .settings-group>.row>.research-toggle{order:1;margin-left:auto}
+#research-task-list .settings-group>.row>.danger{order:1}
+.research-model-summary{flex-basis:100%;order:2;font-size:13px;color:#69798c;white-space:normal}
 </style><script>
 function prepareSearchPanel(prefix){const control=$('#'+prefix+'-search-control');if(!control)return null;const label=control.querySelector(':scope > label');let panel=control.querySelector(':scope > .search-options');if(!panel){panel=document.createElement('div');panel.className='search-options';for(const child of [...control.children])if(child!==label)panel.append(child);control.append(panel)}return {control,label,panel}}
 bindSearchControl=function(prefix){const prepared=prepareSearchPanel(prefix);if(!prepared)return;const {control,panel}=prepared,enabled=$('#'+prefix+'-search-enabled');const update=()=>{const active=enabled.checked;panel.hidden=!active;for(const input of panel.querySelectorAll('input,select,textarea,button'))input.disabled=!active;control.classList.toggle('search-disabled',!active)};enabled.onchange=update;update();control.dataset.searchPanelReady='true'};
@@ -374,7 +378,7 @@ function decorateResearchInputSources(){
   });
 }
 const collectResearchTasksBeforeInputSources=collectResearchTasks;
-collectResearchTasks=function(){const cards=[...document.querySelectorAll('#research-task-list .settings-group')];return collectResearchTasksBeforeInputSources().map((task,index)=>{const card=cards[index],weather=card?.querySelector('.research-use-weather')?.checked;return {...task,use_prompt:card?.querySelector('.research-use-prompt')?.checked!==false,use_web_search:card?.querySelector('.research-use-web')?.checked!==false,weather_sources:weather?[{id:card.querySelector('.research-weather-id').value.trim(),name:card.querySelector('.research-weather-name').value.trim(),latitude:Number(card.querySelector('.research-weather-lat').value),longitude:Number(card.querySelector('.research-weather-lon').value),timezone:card.querySelector('.research-weather-timezone').value.trim()||'Asia/Seoul',forecast_days:Number(card.querySelector('.research-weather-days').value)||2,include_current:card.querySelector('.research-weather-current').checked,include_daily:card.querySelector('.research-weather-daily').checked}]:[]}})};
+collectResearchTasks=function(){const cards=[...document.querySelectorAll('#research-task-list .settings-group')];return collectResearchTasksBeforeInputSources().map((task,index)=>{const card=cards[index],promptToggle=card?.querySelector('.research-use-prompt'),webToggle=card?.querySelector('.research-use-web'),weatherToggle=card?.querySelector('.research-use-weather'),weather=weatherToggle?.checked;return {...task,use_prompt:promptToggle?promptToggle.checked:task.use_prompt!==false,use_web_search:webToggle?webToggle.checked:task.use_web_search!==false,weather_sources:weather?[{id:card.querySelector('.research-weather-id').value.trim(),name:card.querySelector('.research-weather-name').value.trim(),latitude:Number(card.querySelector('.research-weather-lat').value),longitude:Number(card.querySelector('.research-weather-lon').value),timezone:card.querySelector('.research-weather-timezone').value.trim()||'Asia/Seoul',forecast_days:Number(card.querySelector('.research-weather-days').value)||2,include_current:card.querySelector('.research-weather-current').checked,include_daily:card.querySelector('.research-weather-daily').checked}]:(weatherToggle?[]:(task.weather_sources||[]))}})};
 new MutationObserver(decorateResearchInputSources).observe(document.body,{childList:true,subtree:true});
 decorateResearchInputSources();
 let weatherSourcesUi=[];
