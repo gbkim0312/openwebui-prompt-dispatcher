@@ -511,6 +511,30 @@ organizeResearchDataSources();
 .research-input-sources{margin-top:4px}
 </style><script>
 const showSettingsWithWeatherEngine=window.showSettings;
+async function saveSettingsCard(card){
+  syncTalkRooms();
+  const notice=card.querySelector('.settings-card-notice'),button=card.querySelector('.settings-card-save'),values={};
+  card.querySelectorAll('.setting-field').forEach(input=>values[input.id]=input.value);
+  if(!Object.keys(values).length){notice.textContent='저장할 설정이 없습니다.';return}
+  button.disabled=true;notice.textContent='저장하고 적용하는 중입니다…';
+  try{const response=await api('/api/settings',{method:'PUT',body:JSON.stringify({values})});notice.textContent='✓ '+response.message;notice.classList.remove('connection-test-failed')}catch(error){notice.textContent='✗ 저장 실패: '+error.message;notice.classList.add('connection-test-failed')}finally{button.disabled=false}
+}
+function decorateSettingsCards(){
+  const editor=$('#editor');if(!editor)return;
+  editor.querySelector('button[onclick="saveSettings()"]')?.remove();
+  for(const card of editor.querySelectorAll('.settings-groups > .settings-group')){
+    if(card.dataset.cardControlsReady)continue;
+    const heading=card.querySelector(':scope > .connection-section-heading');if(!heading)continue;
+    card.dataset.cardControlsReady='true';card.classList.add('settings-collapsed');
+    const directTest=heading.querySelector(':scope > button');if(directTest)directTest.classList.add('settings-card-test');
+    const actions=document.createElement('div');actions.className='settings-card-actions';
+    actions.innerHTML='<button class="secondary settings-card-save" type="button">이 카드 저장</button><button class="secondary settings-card-toggle" type="button">펼치기</button>';
+    const notice=document.createElement('p');notice.className='muted settings-card-notice';
+    actions.querySelector('.settings-card-save').onclick=()=>saveSettingsCard(card);
+    actions.querySelector('.settings-card-toggle').onclick=()=>{const collapsed=card.classList.toggle('settings-collapsed');actions.querySelector('.settings-card-toggle').textContent=collapsed?'펼치기':'접기'};
+    heading.append(actions);card.append(notice);
+  }
+}
 function parseTalkRooms(raw){try{const rooms=JSON.parse(raw||'[]');return Array.isArray(rooms)?rooms.filter(room=>room&&typeof room==='object'):[]}catch(error){return[]}}
 function syncTalkRooms(){const field=$('#NEXTCLOUD_TALK_ROOMS');if(!field)return;const rooms=[...document.querySelectorAll('#talk-room-list .talk-room-card')].map(card=>({id:card.querySelector('.talk-room-id').value.trim(),name:card.querySelector('.talk-room-name').value.trim(),room_token:card.querySelector('.talk-room-token').value.trim()})).filter(room=>room.id||room.name||room.room_token);field.value=JSON.stringify(rooms)}
 function renderTalkRooms(rooms){const list=$('#talk-room-list');if(!list)return;list.replaceChildren();if(!rooms.length){list.innerHTML='<p class="muted">등록된 Talk 방이 없습니다.</p>';return}for(const room of rooms){const card=document.createElement('section');card.className='talk-room-card';card.innerHTML='<div class="row" style="justify-content:space-between"><h4>Talk 방</h4><button class="danger talk-room-remove" type="button">삭제</button></div><div class="cols"><div><label>식별자</label><input class="talk-room-id" placeholder="team-news"></div><div><label>표시 이름</label><input class="talk-room-name" placeholder="팀 공지"></div><div class="wide"><label>방 토큰</label><div class="input-with-toggle"><input class="talk-room-token" type="password" autocomplete="off" placeholder="Nextcloud Talk room token"><button class="secondary talk-room-toggle" type="button" aria-label="방 토큰 표시 또는 숨김">👁</button></div></div></div>';card.querySelector('.talk-room-id').value=String(room.id||'');card.querySelector('.talk-room-name').value=String(room.name||'');card.querySelector('.talk-room-token').value=String(room.room_token||'');if(room.id==='personal'){card.querySelector('h4').textContent='기본 Talk 방';card.querySelector('.talk-room-remove').disabled=true}card.querySelector('.talk-room-remove').onclick=()=>{card.remove();syncTalkRooms();if(!list.children.length)renderTalkRooms([])};card.querySelector('.talk-room-toggle').onclick=event=>{const input=card.querySelector('.talk-room-token'),shown=input.type==='text';input.type=shown?'password':'text';event.currentTarget.textContent=shown?'👁':'🙈'};card.addEventListener('input',syncTalkRooms);list.append(card)}}
@@ -544,7 +568,7 @@ window.showSettings=async function(){
   keys.insertAdjacentHTML('afterend',`<section class="weather-api-keys-card"><div class="connection-section-heading"><div><h4>전국 지역 검색</h4><p class="muted">카카오 Developers 앱의 REST API 키를 입력하면 전국 주소·장소를 검색해 날씨 위치로 선택할 수 있습니다.</p></div><button class="secondary" type="button" onclick="testLocationSearch()">지역 검색 연결 테스트</button></div><div><label>카카오 REST API 키 <span class="muted">(선택)</span></label><div class="input-with-toggle"><input class="setting-field" id="KAKAO_REST_API_KEY" type="password" autocomplete="off" placeholder="카카오 Developers REST API 키"><button class="secondary" type="button" onclick="toggleSetting('KAKAO_REST_API_KEY',this)" aria-label="카카오 REST API 키 표시 또는 숨김">👁</button></div></div><pre id="location-search-test-result" class="weather-engine-result" hidden></pre></section>`);
   $('#KAKAO_REST_API_KEY').value=data.values.KAKAO_REST_API_KEY||'';
   const update=()=>{const kma=$('#WEATHER_ENGINE').value==='kma';keys.hidden=!kma;$('#weather-engine-hint').textContent=kma?'단기예보·기상특보·중기예보 서비스별로 키를 설정할 수 있습니다.':'Open-Meteo는 API 키 없이 바로 사용할 수 있습니다.'};
-  $('#WEATHER_ENGINE').addEventListener('change',update);update();
+  $('#WEATHER_ENGINE').addEventListener('change',update);update();decorateSettingsCards();
 };
 window.testWeatherEngine=async function(){
   const result=$('#weather-engine-test-result'),button=document.querySelector('button[onclick="testWeatherEngine()"]');
@@ -564,5 +588,6 @@ window.testLocationSearch=async function(){
 .weather-api-keys-card{display:grid;gap:10px;margin-top:14px;padding:16px;border:1px solid #dce3ea;border-radius:8px;background:#f4f8fc}
 .weather-api-keys-card h4{margin:0}.weather-api-keys-card>div label{margin-top:0}
 .talk-room-settings{margin-top:16px;padding-top:16px;border-top:1px solid #dce3ea}.talk-room-settings h4{margin:0}.talk-room-card{margin:10px 0 0;padding:14px;border:1px solid #dce3ea;border-radius:8px;background:#f8fafc}.talk-room-card h4{margin:0}.talk-room-card label{margin-top:0}
+.settings-card-actions{display:flex;align-items:center;gap:8px;margin-left:auto}.settings-card-notice{margin:10px 0 0!important}.settings-card-notice:empty{display:none}.settings-group.settings-collapsed>:not(.connection-section-heading):not(.settings-card-notice){display:none}.settings-group.settings-collapsed .settings-card-test{display:none}
 .weather-engine-result{margin:12px 0 0;max-height:260px;overflow:auto;white-space:pre-wrap;background:#f4f8fc;border:1px solid #dce3ea;border-radius:6px;padding:10px;font:12px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace}
 </style></body></html>
