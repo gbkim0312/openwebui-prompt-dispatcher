@@ -175,3 +175,35 @@ def test_weather_only_research_task_is_loaded(tmp_path) -> None:
     assert task.weather_sources[0].id == "seoul"
     assert task.weather_sources[0].include_alerts is True
     assert task.weather_sources[0].include_weekly is True
+
+
+def test_duplicate_research_task_ids_do_not_load_job(tmp_path) -> None:
+    (tmp_path / "duplicate.job.yaml").write_text(
+        """\
+version: 1
+id: duplicate
+schedule:
+  cron: "0 7 * * *"
+  timezone: Asia/Seoul
+openwebui:
+  model: test-model
+prompt:
+  text: hello
+delivery:
+  channels:
+    - type: fake
+      target: one
+research:
+  tasks:
+    - id: politics
+      query: first
+    - id: politics
+      query: second
+""",
+        encoding="utf-8",
+    )
+
+    repository = YamlJobRepository(tmp_path)
+
+    assert repository.find_all() == []
+    assert "research task ids must be unique: politics" in repository.errors[0]

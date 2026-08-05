@@ -1,3 +1,4 @@
+import re
 from datetime import date
 from pathlib import Path
 from typing import Any
@@ -83,6 +84,13 @@ class YamlJobRepository:
             raise JobValidationError("web_search_depth is invalid")
         if not 1 <= max_results <= 20:
             raise JobValidationError("web_search_max_results must be between 1 and 20")
+        research_tasks = tuple(self._map_research_task(item) for item in research.get("tasks", []))
+        task_ids = [task.id for task in research_tasks]
+        if len(set(task_ids)) != len(task_ids):
+            duplicate_ids = sorted({task_id for task_id in task_ids if task_ids.count(task_id) > 1})
+            raise JobValidationError(
+                f"research task ids must be unique: {', '.join(duplicate_ids)}"
+            )
         return Job(
             raw["id"],
             raw.get("name", raw["id"]),
@@ -114,7 +122,7 @@ class YamlJobRepository:
                 int(execution.get("retry_count", 0)),
                 int(execution.get("retry_delay_seconds", 1)),
             ),
-            tuple(self._map_research_task(item) for item in research.get("tasks", [])),
+            research_tasks,
             bool(research.get("use_parent_model", True)),
             tuple(self._map_weather_source(item) for item in context_sources.get("weather", [])),
         )
@@ -161,9 +169,9 @@ class YamlJobRepository:
         if not isinstance(raw, dict):
             raise JobValidationError("research.tasks must contain objects")
         task_id = str(raw.get("id", ""))
-        if not task_id or not task_id.replace("_", "").replace("-", "").isalnum():
+        if not re.fullmatch(r"[a-z][a-z0-9_-]*", task_id):
             raise JobValidationError(
-                "research task id may use letters, numbers, hyphens, and underscores only"
+                "research task id must start with a lowercase letter and use lowercase letters, numbers, hyphens, or underscores only"
             )
         query = str(raw.get("query", ""))
         use_web_search = bool(raw.get("use_web_search", True))
