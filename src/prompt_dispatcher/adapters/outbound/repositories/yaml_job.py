@@ -284,6 +284,7 @@ class YamlJobRepository:
             status,
             league_type,
             reference_date,
+            bool(raw.get("use_today", False)),
         )
 
     def find_all(self) -> list[Job]:

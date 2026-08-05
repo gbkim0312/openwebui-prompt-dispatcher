@@ -40,7 +40,12 @@ class KboOpenApi:
         params: dict[str, str | int] = {"limit": source.limit}
         if source.team:
             params["team"] = source.team
-        if source.data_type == "games":
+        if source.data_type == "latest_results":
+            if source.use_today:
+                params["date"] = target_date.isoformat()
+            elif source.reference_date:
+                params["date"] = source.reference_date
+        elif source.data_type == "games":
             if source.range_days == 1:
                 params["date"] = target_date.isoformat()
             else:
@@ -138,9 +143,9 @@ class KboOpenApi:
             )
         else:
             response = self._client.post(
-                f"{self._base_url}/internal/v1/collections",
+                f"{self._base_url}/internal/v1/collections/all",
                 headers=headers,
-                json={"targetDate": target_date.isoformat(), "force": False},
+                json={"targetDate": target_date.isoformat()},
                 timeout=45,
             )
         response.raise_for_status()

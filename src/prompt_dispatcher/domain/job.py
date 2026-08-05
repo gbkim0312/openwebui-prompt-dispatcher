@@ -100,6 +100,7 @@ class KboSource:
     status: str | None = None
     league_type: str | None = None
     reference_date: str | None = None
+    use_today: bool = False
 
 
 @dataclass(frozen=True)

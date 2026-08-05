@@ -24,7 +24,7 @@ def test_kbo_openapi_collects_before_games_query() -> None:
 
     def handler(request: httpx.Request) -> httpx.Response:
         calls.append(request.url.path)
-        if request.url.path == "/internal/v1/collections":
+        if request.url.path == "/internal/v1/collections/all":
             assert request.headers["authorization"] == "Bearer admin-key"
             return httpx.Response(200, json={"insertedCount": 1})
         assert request.url.path == "/api/v1/games"
@@ -36,7 +36,7 @@ def test_kbo_openapi_collects_before_games_query() -> None:
     )
     api.fetch(KboSource("today", "오늘 경기", "games", collect_before_fetch=True), date(2026, 8, 5))
 
-    assert calls == ["/internal/v1/collections", "/api/v1/games"]
+    assert calls == ["/internal/v1/collections/all", "/api/v1/games"]
 
 
 def test_kbo_openapi_supports_game_analysis_and_record_collection() -> None:
@@ -87,3 +87,13 @@ def test_kbo_rankings_omits_date_when_not_selected() -> None:
 
     api = KboOpenApi("http://kbo.test", client=httpx.Client(transport=httpx.MockTransport(handler)))
     api.fetch(KboSource("ranking", "최신 순위", "rankings"), date(2026, 8, 5))
+
+
+def test_kbo_latest_results_uses_execution_date_only_when_enabled() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        assert request.url.path == "/api/v1/results/latest"
+        assert request.url.params["date"] == "2026-08-05"
+        return httpx.Response(200, json={"games": []})
+
+    api = KboOpenApi("http://kbo.test", client=httpx.Client(transport=httpx.MockTransport(handler)))
+    api.fetch(KboSource("today", "오늘 종료 경기", use_today=True), date(2026, 8, 5))
