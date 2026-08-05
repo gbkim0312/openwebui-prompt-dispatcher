@@ -59,3 +59,21 @@ def test_kbo_openapi_supports_game_analysis_and_record_collection() -> None:
 
     assert calls == ["/internal/v1/games/42/preview/collect", "/api/v1/games/42/analysis"]
     assert "officialAnalysis" in result
+
+
+def test_kbo_openapi_resolves_game_id_from_team() -> None:
+    calls: list[str] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        calls.append(request.url.path)
+        if request.url.path == "/api/v1/results/latest":
+            assert request.url.params["team"] == "SS"
+            return httpx.Response(200, json={"games": [{"id": 73}]})
+        assert request.url.path == "/api/v1/games/73/details"
+        return httpx.Response(200, json={"winningHit": "single"})
+
+    api = KboOpenApi("http://kbo.test", client=httpx.Client(transport=httpx.MockTransport(handler)))
+    result = api.fetch(KboSource("detail", "삼성 최근 경기", "game_details", team="SS"), date(2026, 8, 5))
+
+    assert calls == ["/api/v1/results/latest", "/api/v1/games/73/details"]
+    assert "선택 경기 ID: 73" in result

@@ -252,8 +252,8 @@ class YamlJobRepository:
         if not 1 <= limit <= 50:
             raise JobValidationError("KBO source limit must be between 1 and 50")
         game_id = int(raw["game_id"]) if raw.get("game_id") else None
-        if data_type in {"game_details", "lineups", "analysis"} and not game_id:
-            raise JobValidationError("KBO source game_id is required for game detail data")
+        if data_type in {"game_details", "lineups", "analysis"} and not (game_id or team):
+            raise JobValidationError("KBO detail data requires a game_id or team")
         if game_id is not None and game_id < 1:
             raise JobValidationError("KBO source game_id must be positive")
         range_days = int(raw.get("range_days", 1))

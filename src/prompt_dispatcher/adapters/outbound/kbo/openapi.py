@@ -1,4 +1,5 @@
 import json
+from dataclasses import replace
 from datetime import date, timedelta
 from typing import ClassVar
 
@@ -32,6 +33,8 @@ class KboOpenApi:
     def fetch(self, source: KboSource, target_date: date) -> str:
         if source.data_type not in self._paths:
             raise ValueError(f"Unsupported KBO data type: {source.data_type}")
+        if source.data_type in {"game_details", "lineups", "analysis"} and not source.game_id:
+            source = replace(source, game_id=self._resolve_game_id(source, target_date))
         if source.collect_before_fetch:
             self._collect(source, target_date)
         params: dict[str, str | int] = {"limit": source.limit}
@@ -74,11 +77,42 @@ class KboOpenApi:
             (
                 f"{source.name} KBO 공식 데이터",
                 f"조회 종류: {source.data_type}; 기준 날짜: {target_date.isoformat()}",
+                f"선택 경기 ID: {source.game_id}" if source.game_id else "",
                 "아래 API 응답의 확인 가능한 사실만 사용하고, 없는 경기·기록·순위는 추정하지 마세요.",
                 json.dumps(payload, ensure_ascii=False, indent=2),
                 f"출처: KBO 경기 결과 OpenAPI — {response.url}",
             )
         )
+
+    def _resolve_game_id(self, source: KboSource, target_date: date) -> int:
+        if not source.team:
+            raise ValueError("경기 ID를 입력하거나 팀을 선택하세요.")
+        if source.data_type in {"lineups", "analysis"}:
+            response = self._client.get(
+                f"{self._base_url}/api/v1/games",
+                params={"date": target_date.isoformat(), "team": source.team, "limit": 20},
+                timeout=30,
+            )
+            response.raise_for_status()
+            payload = response.json()
+            games = payload.get("games", []) if isinstance(payload, dict) else []
+            if isinstance(games, list):
+                for game in games:
+                    if isinstance(game, dict) and isinstance(game.get("id"), int):
+                        return int(game["id"])
+        response = self._client.get(
+            f"{self._base_url}/api/v1/results/latest",
+            params={"team": source.team, "limit": 1},
+            timeout=30,
+        )
+        response.raise_for_status()
+        payload = response.json()
+        games = payload.get("games", []) if isinstance(payload, dict) else []
+        if isinstance(games, list) and games and isinstance(games[0], dict):
+            game_id = games[0].get("id")
+            if isinstance(game_id, int):
+                return game_id
+        raise ValueError(f"팀 {source.team}의 조회 가능한 경기를 찾지 못했습니다.")
 
     def test_connection(self) -> str:
         response = self._client.get(f"{self._base_url}/health/ready", timeout=10)
