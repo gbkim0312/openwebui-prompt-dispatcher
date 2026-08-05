@@ -642,4 +642,4 @@ function upgradeKboSourceControls(){document.querySelectorAll('#research-task-li
 const collectResearchTasksBeforeMultiKbo=collectResearchTasks;
 collectResearchTasks=function(){const cards=[...document.querySelectorAll('#research-task-list .settings-group')];return collectResearchTasksBeforeMultiKbo().map((task,index)=>{const section=cards[index]?.querySelector('.research-kbo-source');if(!section||!cards[index].querySelector('.research-use-kbo')?.checked)return {...task,kbo_sources:[]};return {...task,kbo_sources:readKboSourceCards(section).map((source,sourceIndex)=>({...source,id:`${task.id||'kbo'}_${sourceIndex+1}`}))}})};
 new MutationObserver(upgradeKboSourceControls).observe(document.body,{childList:true,subtree:true});upgradeKboSourceControls();
-</script><style>.kbo-source-list{display:grid;gap:10px}.kbo-source-card{padding:13px;border:1px solid #bcd7c3;border-radius:8px;background:#fff}.kbo-source-card h4{margin:0}</style></body></html>
+</script><style>.kbo-source-list{display:grid;gap:14px;margin-top:16px}.kbo-source-card{padding:13px;border:1px solid #bcd7c3;border-radius:8px;background:#fff}.kbo-source-card h4{margin:0}</style></body></html>
