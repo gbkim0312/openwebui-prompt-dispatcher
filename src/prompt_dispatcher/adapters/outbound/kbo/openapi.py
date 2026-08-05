@@ -1,5 +1,5 @@
 import json
-from datetime import date
+from datetime import date, timedelta
 from typing import ClassVar
 
 import httpx
@@ -15,6 +15,11 @@ class KboOpenApi:
         "games": "/api/v1/games",
         "rankings": "/api/v1/rankings",
         "player_stats": "/api/v1/player-stats",
+        "teams": "/api/v1/teams",
+        "awards": "/api/v1/awards",
+        "game_details": "/api/v1/games/{game_id}/details",
+        "lineups": "/api/v1/games/{game_id}/lineups",
+        "analysis": "/api/v1/games/{game_id}/analysis",
     }
 
     def __init__(
@@ -28,12 +33,20 @@ class KboOpenApi:
         if source.data_type not in self._paths:
             raise ValueError(f"Unsupported KBO data type: {source.data_type}")
         if source.collect_before_fetch:
-            self._collect(target_date)
+            self._collect(source, target_date)
         params: dict[str, str | int] = {"limit": source.limit}
         if source.team:
             params["team"] = source.team
         if source.data_type == "games":
-            params["date"] = target_date.isoformat()
+            if source.range_days == 1:
+                params["date"] = target_date.isoformat()
+            else:
+                params["from"] = (target_date - timedelta(days=source.range_days - 1)).isoformat()
+                params["to"] = target_date.isoformat()
+            if source.status:
+                params["status"] = source.status
+            if source.league_type:
+                params["leagueType"] = source.league_type
         elif source.data_type == "rankings":
             params = {"date": target_date.isoformat()}
         elif source.data_type == "player_stats":
@@ -41,8 +54,17 @@ class KboOpenApi:
             params["role"] = source.role
             if source.team:
                 params["team"] = source.team
+        elif source.data_type == "awards":
+            params = {"season": source.season or target_date.year}
+        elif source.data_type == "teams":
+            params = {}
+        if source.data_type in {"game_details", "lineups", "analysis"}:
+            if not source.game_id:
+                raise ValueError(f"KBO game_id is required for {source.data_type}")
+            params = {}
+        path = self._paths[source.data_type].format(game_id=source.game_id)
         response = self._client.get(
-            f"{self._base_url}{self._paths[source.data_type]}", params=params, timeout=30
+            f"{self._base_url}{path}", params=params, timeout=30
         )
         response.raise_for_status()
         payload = response.json()
@@ -63,13 +85,28 @@ class KboOpenApi:
         response.raise_for_status()
         return response.text
 
-    def _collect(self, target_date: date) -> None:
+    def _collect(self, source: KboSource, target_date: date) -> None:
         if not self._admin_api_key:
             raise ValueError("KBO_ADMIN_API_KEY is required when collection refresh is enabled")
-        response = self._client.post(
-            f"{self._base_url}/internal/v1/collections",
-            headers={"Authorization": f"Bearer {self._admin_api_key}"},
-            json={"targetDate": target_date.isoformat(), "force": False},
-            timeout=45,
-        )
+        headers = {"Authorization": f"Bearer {self._admin_api_key}"}
+        if source.data_type in {"rankings", "player_stats", "awards"}:
+            response = self._client.post(
+                f"{self._base_url}/internal/v1/records/collect", headers=headers, timeout=45
+            )
+        elif source.data_type in {"game_details", "lineups", "analysis"}:
+            if not source.game_id:
+                raise ValueError(f"KBO game_id is required for {source.data_type} collection")
+            suffix = "details/collect" if source.data_type == "game_details" else "preview/collect"
+            response = self._client.post(
+                f"{self._base_url}/internal/v1/games/{source.game_id}/{suffix}",
+                headers=headers,
+                timeout=45,
+            )
+        else:
+            response = self._client.post(
+                f"{self._base_url}/internal/v1/collections",
+                headers=headers,
+                json={"targetDate": target_date.isoformat(), "force": False},
+                timeout=45,
+            )
         response.raise_for_status()

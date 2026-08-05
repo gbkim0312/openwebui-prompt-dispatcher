@@ -95,6 +95,10 @@ class KboSource:
     role: str = "hitter"
     limit: int = 5
     collect_before_fetch: bool = False
+    game_id: int | None = None
+    range_days: int = 1
+    status: str | None = None
+    league_type: str | None = None
 
 
 @dataclass(frozen=True)

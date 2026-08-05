@@ -37,3 +37,25 @@ def test_kbo_openapi_collects_before_games_query() -> None:
     api.fetch(KboSource("today", "오늘 경기", "games", collect_before_fetch=True), date(2026, 8, 5))
 
     assert calls == ["/internal/v1/collections", "/api/v1/games"]
+
+
+def test_kbo_openapi_supports_game_analysis_and_record_collection() -> None:
+    calls: list[str] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        calls.append(request.url.path)
+        if request.url.path == "/internal/v1/games/42/preview/collect":
+            return httpx.Response(200, json={"updated": True})
+        assert request.url.path == "/api/v1/games/42/analysis"
+        return httpx.Response(200, json={"officialAnalysis": {"summary": "preview"}})
+
+    api = KboOpenApi(
+        "http://kbo.test", "admin-key", httpx.Client(transport=httpx.MockTransport(handler))
+    )
+    result = api.fetch(
+        KboSource("analysis", "경기 공식 분석", "analysis", game_id=42, collect_before_fetch=True),
+        date(2026, 8, 5),
+    )
+
+    assert calls == ["/internal/v1/games/42/preview/collect", "/api/v1/games/42/analysis"]
+    assert "officialAnalysis" in result

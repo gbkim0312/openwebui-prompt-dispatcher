@@ -305,6 +305,10 @@ def create_app(container: ApplicationContainer) -> FastAPI:
                                     "role": source.role,
                                     "limit": source.limit,
                                     "collect_before_fetch": source.collect_before_fetch,
+                                    "game_id": source.game_id,
+                                    "range_days": source.range_days,
+                                    "status": source.status,
+                                    "league_type": source.league_type,
                                 }
                                 for source in task.kbo_sources
                             ],

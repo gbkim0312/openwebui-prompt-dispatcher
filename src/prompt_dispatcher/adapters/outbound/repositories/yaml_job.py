@@ -227,7 +227,17 @@ class YamlJobRepository:
         if not source_id or not source_id.replace("_", "").replace("-", "").isalnum():
             raise JobValidationError("KBO source id may use letters, numbers, hyphens, and underscores only")
         data_type = str(raw.get("data_type", "latest_results"))
-        if data_type not in {"latest_results", "games", "rankings", "player_stats"}:
+        if data_type not in {
+            "teams",
+            "latest_results",
+            "games",
+            "rankings",
+            "player_stats",
+            "awards",
+            "game_details",
+            "lineups",
+            "analysis",
+        }:
             raise JobValidationError("KBO source data_type is invalid")
         team = str(raw["team"]).upper() if raw.get("team") else None
         if team and (len(team) > 3 or not team.isalnum()):
@@ -241,6 +251,18 @@ class YamlJobRepository:
         limit = int(raw.get("limit", 5))
         if not 1 <= limit <= 50:
             raise JobValidationError("KBO source limit must be between 1 and 50")
+        game_id = int(raw["game_id"]) if raw.get("game_id") else None
+        if data_type in {"game_details", "lineups", "analysis"} and not game_id:
+            raise JobValidationError("KBO source game_id is required for game detail data")
+        if game_id is not None and game_id < 1:
+            raise JobValidationError("KBO source game_id must be positive")
+        range_days = int(raw.get("range_days", 1))
+        if not 1 <= range_days <= 31:
+            raise JobValidationError("KBO source range_days must be between 1 and 31")
+        status = str(raw["status"]) if raw.get("status") else None
+        if status and status not in {"scheduled", "in_progress", "completed", "cancelled"}:
+            raise JobValidationError("KBO source status is invalid")
+        league_type = str(raw["league_type"]) if raw.get("league_type") else None
         return KboSource(
             source_id,
             str(raw.get("name") or source_id),
@@ -250,6 +272,10 @@ class YamlJobRepository:
             role,
             limit,
             bool(raw.get("collect_before_fetch", False)),
+            game_id,
+            range_days,
+            status,
+            league_type,
         )
 
     def find_all(self) -> list[Job]:
