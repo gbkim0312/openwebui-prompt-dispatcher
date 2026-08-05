@@ -144,3 +144,31 @@ def test_kbo_lineup_resolves_game_on_specified_date() -> None:
     )
 
     assert "선택 경기 ID: 91" in result
+
+
+def test_kbo_starting_pitcher_analysis_collects_preview_data() -> None:
+    calls: list[str] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        calls.append(request.url.path)
+        if request.url.path == "/internal/v1/games/42/preview/collect":
+            return httpx.Response(200, json={"updated": True})
+        assert request.url.path == "/api/v1/games/42/analysis"
+        return httpx.Response(200, json={"officialAnalysis": {"startingPitchers": []}})
+
+    api = KboOpenApi(
+        "http://kbo.test", "admin-key", httpx.Client(transport=httpx.MockTransport(handler))
+    )
+    result = api.fetch(
+        KboSource(
+            "starters",
+            "선발투수 분석",
+            "starting_pitcher_analysis",
+            game_id=42,
+            collect_before_fetch=True,
+        ),
+        date(2026, 8, 5),
+    )
+
+    assert calls == ["/internal/v1/games/42/preview/collect", "/api/v1/games/42/analysis"]
+    assert "선발투수 이름·공식 비교 분석" in result

@@ -21,6 +21,7 @@ class KboOpenApi:
         "game_details": "/api/v1/games/{game_id}/details",
         "lineups": "/api/v1/games/{game_id}/lineups",
         "analysis": "/api/v1/games/{game_id}/analysis",
+        "starting_pitcher_analysis": "/api/v1/games/{game_id}/analysis",
     }
 
     def __init__(
@@ -36,12 +37,12 @@ class KboOpenApi:
         selected_date = self._selected_date(source, target_date)
         if (
             source.collect_before_fetch
-            and source.data_type in {"game_details", "lineups", "analysis"}
+            and source.data_type in {"game_details", "lineups", "analysis", "starting_pitcher_analysis"}
             and not source.game_id
             and selected_date
         ):
             self._collect_all(selected_date)
-        if source.data_type in {"game_details", "lineups", "analysis"} and not source.game_id:
+        if source.data_type in {"game_details", "lineups", "analysis", "starting_pitcher_analysis"} and not source.game_id:
             source = replace(source, game_id=self._resolve_game_id(source, target_date))
         if source.collect_before_fetch:
             self._collect(source, selected_date or target_date)
@@ -74,7 +75,7 @@ class KboOpenApi:
             params = {"season": source.season or target_date.year}
         elif source.data_type == "teams":
             params = {}
-        if source.data_type in {"game_details", "lineups", "analysis"}:
+        if source.data_type in {"game_details", "lineups", "analysis", "starting_pitcher_analysis"}:
             if not source.game_id:
                 raise ValueError(f"KBO game_id is required for {source.data_type}")
             params = {}
@@ -92,6 +93,11 @@ class KboOpenApi:
                 f"조회 종류: {source.data_type}; 기준 날짜: {target_date.isoformat()}",
                 f"선택 경기 ID: {source.game_id}" if source.game_id else "",
                 "아래 API 응답의 확인 가능한 사실만 사용하고, 없는 경기·기록·순위는 추정하지 마세요.",
+                (
+                    "선발투수 이름·공식 비교 분석·확정 여부만 추출하고, API에 없는 선발 정보는 추정하지 마세요."
+                    if source.data_type == "starting_pitcher_analysis"
+                    else ""
+                ),
                 json.dumps(payload, ensure_ascii=False, indent=2),
                 f"출처: KBO 경기 결과 OpenAPI — {response.url}",
             )
@@ -101,7 +107,7 @@ class KboOpenApi:
         if not source.team:
             raise ValueError("경기 ID를 입력하거나 팀을 선택하세요.")
         selected_date = self._selected_date(source, target_date)
-        if selected_date or source.data_type in {"lineups", "analysis"}:
+        if selected_date or source.data_type in {"lineups", "analysis", "starting_pitcher_analysis"}:
             lookup_date = selected_date or target_date
             params: dict[str, str | int] = {
                 "date": lookup_date.isoformat(),
@@ -161,7 +167,7 @@ class KboOpenApi:
             response = self._client.post(
                 f"{self._base_url}/internal/v1/records/collect", headers=headers, timeout=45
             )
-        elif source.data_type in {"game_details", "lineups", "analysis"}:
+        elif source.data_type in {"game_details", "lineups", "analysis", "starting_pitcher_analysis"}:
             if not source.game_id:
                 raise ValueError(f"KBO game_id is required for {source.data_type} collection")
             suffix = "details/collect" if source.data_type == "game_details" else "preview/collect"
