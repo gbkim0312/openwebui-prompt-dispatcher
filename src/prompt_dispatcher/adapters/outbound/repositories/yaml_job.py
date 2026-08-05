@@ -10,6 +10,7 @@ from prompt_dispatcher.domain.job import (
     ChannelDestination,
     ExecutionPolicy,
     Job,
+    KboSource,
     OpenWebUiOptions,
     PromptDefinition,
     ResearchTask,
@@ -168,10 +169,15 @@ class YamlJobRepository:
         weather_sources = tuple(
             YamlJobRepository._map_weather_source(item) for item in raw.get("weather_sources", [])
         )
+        kbo_sources = tuple(
+            YamlJobRepository._map_kbo_source(item) for item in raw.get("kbo_sources", [])
+        )
         if use_web_search and not query:
             raise JobValidationError("research task query is required when web search is enabled")
-        if not use_web_search and not weather_sources:
-            raise JobValidationError("research task must enable web search or add a weather source")
+        if not use_web_search and not weather_sources and not kbo_sources:
+            raise JobValidationError(
+                "research task must enable web search or add a weather or KBO source"
+            )
         time_range = str(raw.get("time_range", "day"))
         topic = str(raw.get("topic", "news"))
         depth = str(raw.get("search_depth", "basic"))
@@ -210,6 +216,40 @@ class YamlJobRepository:
             bool(raw.get("include_raw_content", False)),
             use_web_search,
             weather_sources,
+            kbo_sources,
+        )
+
+    @staticmethod
+    def _map_kbo_source(raw: object) -> KboSource:
+        if not isinstance(raw, dict):
+            raise JobValidationError("kbo_sources must contain objects")
+        source_id = str(raw.get("id", ""))
+        if not source_id or not source_id.replace("_", "").replace("-", "").isalnum():
+            raise JobValidationError("KBO source id may use letters, numbers, hyphens, and underscores only")
+        data_type = str(raw.get("data_type", "latest_results"))
+        if data_type not in {"latest_results", "games", "rankings", "player_stats"}:
+            raise JobValidationError("KBO source data_type is invalid")
+        team = str(raw["team"]).upper() if raw.get("team") else None
+        if team and (len(team) > 3 or not team.isalnum()):
+            raise JobValidationError("KBO source team code is invalid")
+        season = int(raw["season"]) if raw.get("season") else None
+        if season and not 1982 <= season <= 2100:
+            raise JobValidationError("KBO source season is invalid")
+        role = str(raw.get("role", "hitter"))
+        if role not in {"hitter", "pitcher"}:
+            raise JobValidationError("KBO source role must be hitter or pitcher")
+        limit = int(raw.get("limit", 5))
+        if not 1 <= limit <= 50:
+            raise JobValidationError("KBO source limit must be between 1 and 50")
+        return KboSource(
+            source_id,
+            str(raw.get("name") or source_id),
+            data_type,
+            team,
+            season,
+            role,
+            limit,
+            bool(raw.get("collect_before_fetch", False)),
         )
 
     def find_all(self) -> list[Job]:

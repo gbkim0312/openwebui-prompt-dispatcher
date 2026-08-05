@@ -20,6 +20,7 @@ from prompt_dispatcher.domain.job import (
     ChannelDestination,
     ExecutionPolicy,
     Job,
+    KboSource,
     OpenWebUiOptions,
     OpenWebUiResponse,
     PromptDefinition,
@@ -535,3 +536,43 @@ def test_research_can_pass_raw_search_and_weather_data_to_final_prompt() -> None
     assert len(client.requests) == 1
     assert "--- Tavily 검색 결과 ---" in client.requests[0].prompt
     assert "--- 구조화 날씨 데이터 ---" in client.requests[0].prompt
+
+
+def test_research_can_use_kbo_openapi_without_tavily() -> None:
+    class FakeKbo:
+        def fetch(self, source: KboSource, *_: object) -> str:
+            assert source.team == "SS"
+            return "삼성 최근 경기: 삼성 5 - 2 두산"
+
+    job = Job(
+        "kbo",
+        "KBO",
+        True,
+        Schedule("0 7 * * *", "UTC"),
+        OpenWebUiOptions("model"),
+        PromptDefinition(text="{{ research.samsung }}"),
+        (ChannelDestination("fake", "one"),),
+        research_tasks=(
+            ResearchTask(
+                "samsung",
+                "삼성 경기",
+                "",
+                use_web_search=False,
+                kbo_sources=(KboSource("recent", "삼성 최근 경기", team="SS"),),
+            ),
+        ),
+    )
+    client = FakeOpenWebUiClient("최종 결과")
+    result = RunJob(
+        InMemoryJobRepository([job]),
+        FakePromptLoader(),
+        JinjaTemplateRenderer(),
+        client,
+        InMemoryExecutionRepository(),
+        ChannelResolver([FakeMessageChannel()]),
+        FakeClock(datetime(2026, 1, 1, tzinfo=UTC)),
+        kbo=FakeKbo(),  # type: ignore[arg-type]
+    ).execute(RunJobCommand("kbo"))
+
+    assert result.status == ExecutionStatus.SUCCESS
+    assert "삼성 5 - 2 두산" in client.requests[0].prompt

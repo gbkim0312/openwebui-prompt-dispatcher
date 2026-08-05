@@ -11,6 +11,7 @@ from prompt_dispatcher.application.ports import (
     ClockPort,
     ExecutionRepositoryPort,
     JobRepositoryPort,
+    KboPort,
     OpenWebUiPort,
     PromptLoaderPort,
     TemplateRendererPort,
@@ -50,6 +51,7 @@ class RunJob:
         tavily: TavilySearch | None = None,
         retention_days: int = 30,
         weather: WeatherPort | None = None,
+        kbo: KboPort | None = None,
     ) -> None:
         self._jobs, self._prompts, self._renderer = job_repository, prompt_loader, template_renderer
         self._openwebui, self._executions, self._channels, self._clock = (
@@ -62,6 +64,7 @@ class RunJob:
         self._tavily = tavily
         self._retention_days = retention_days
         self._weather = weather
+        self._kbo = kbo
 
     def execute(self, command: RunJobCommand) -> RunJobResult:
         job = self._jobs.find_by_id(command.job_id)
@@ -149,6 +152,21 @@ class RunJob:
                             raise ValueError("Weather service is not configured")
                         weather_context.append(self._weather.fetch(source))
                     source_context: list[str] = []
+                    if task.kbo_sources:
+                        if self._kbo is None:
+                            raise ValueError("KBO OpenAPI is not configured")
+                        for kbo_source in task.kbo_sources:
+                            logger.info(
+                                "event=kbo_source_started job_id=%s execution_id=%s task_id=%s source_id=%s",
+                                job.id,
+                                execution.id,
+                                task.id,
+                                kbo_source.id,
+                            )
+                            source_context.append(
+                                "--- KBO 공식 데이터 ---\n"
+                                + self._kbo.fetch(kbo_source, scheduled.date())
+                            )
                     if weather_context:
                         source_context.append(
                             "--- 구조화 날씨 데이터 ---\n" + "\n\n".join(weather_context)

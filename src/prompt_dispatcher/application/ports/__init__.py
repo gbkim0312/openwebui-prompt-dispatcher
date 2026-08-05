@@ -1,6 +1,7 @@
 from .clock import ClockPort
 from .execution_repository import ExecutionRepositoryPort
 from .job_repository import JobRepositoryPort
+from .kbo import KboPort
 from .message_channel import MessageChannelPort
 from .model_catalog import ModelCatalogPort
 from .openwebui import OpenWebUiPort
@@ -13,6 +14,7 @@ __all__ = [
     "ClockPort",
     "ExecutionRepositoryPort",
     "JobRepositoryPort",
+    "KboPort",
     "MessageChannelPort",
     "ModelCatalogPort",
     "OpenWebUiPort",

@@ -61,6 +61,45 @@ research:
     assert repository.find_all()[0].research_tasks[0].id == "mobility-ai"
 
 
+def test_research_task_loads_kbo_source_without_web_search(tmp_path) -> None:
+    (tmp_path / "kbo.job.yaml").write_text(
+        """\
+version: 1
+id: kbo
+schedule:
+  cron: "0 7 * * *"
+  timezone: Asia/Seoul
+openwebui:
+  model: test-model
+prompt:
+  text: hello
+delivery:
+  channels:
+    - type: fake
+      target: one
+research:
+  tasks:
+    - id: samsung
+      name: 삼성 경기 결과
+      use_web_search: false
+      kbo_sources:
+        - id: samsung_results
+          name: 삼성 최근 경기
+          data_type: latest_results
+          team: SS
+          limit: 3
+""".strip(),
+        encoding="utf-8",
+    )
+
+    repository = YamlJobRepository(tmp_path)
+
+    assert repository.errors == []
+    source = repository.find_all()[0].research_tasks[0].kbo_sources[0]
+    assert source.team == "SS"
+    assert source.limit == 3
+
+
 def test_research_task_weekdays_are_loaded(tmp_path) -> None:
     (tmp_path / "weekdays.job.yaml").write_text(
         """\

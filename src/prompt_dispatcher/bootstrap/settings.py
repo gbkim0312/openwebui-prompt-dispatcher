@@ -64,6 +64,8 @@ class Settings:
     kma_alert_service_key: str
     kma_mid_service_key: str
     kakao_rest_api_key: str
+    kbo_api_base_url: str
+    kbo_admin_api_key: str
 
     @classmethod
     def from_environment(cls) -> "Settings":
@@ -109,4 +111,6 @@ class Settings:
             managed_value("KMA_ALERT_SERVICE_KEY"),
             managed_value("KMA_MID_SERVICE_KEY"),
             managed_value("KAKAO_REST_API_KEY"),
+            managed_value("KBO_API_BASE_URL", "http://localhost:8085").rstrip("/"),
+            managed_value("KBO_ADMIN_API_KEY"),
         )

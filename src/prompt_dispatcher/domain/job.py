@@ -68,6 +68,7 @@ class ResearchTask:
     include_raw_content: bool = False
     use_web_search: bool = True
     weather_sources: "tuple[WeatherSource, ...]" = ()
+    kbo_sources: "tuple[KboSource, ...]" = ()
 
 
 @dataclass(frozen=True)
@@ -82,6 +83,18 @@ class WeatherSource:
     forecast_days: int = 2
     include_alerts: bool = False
     include_weekly: bool = False
+
+
+@dataclass(frozen=True)
+class KboSource:
+    id: str
+    name: str
+    data_type: str = "latest_results"
+    team: str | None = None
+    season: int | None = None
+    role: str = "hitter"
+    limit: int = 5
+    collect_before_fetch: bool = False
 
 
 @dataclass(frozen=True)
