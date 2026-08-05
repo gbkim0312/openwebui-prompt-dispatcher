@@ -97,3 +97,50 @@ def test_kbo_latest_results_uses_execution_date_only_when_enabled() -> None:
 
     api = KboOpenApi("http://kbo.test", client=httpx.Client(transport=httpx.MockTransport(handler)))
     api.fetch(KboSource("today", "오늘 종료 경기", use_today=True), date(2026, 8, 5))
+
+
+def test_kbo_game_detail_resolves_completed_game_on_execution_date() -> None:
+    calls: list[str] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        calls.append(request.url.path)
+        if request.url.path == "/api/v1/games":
+            assert request.url.params["date"] == "2026-08-05"
+            assert request.url.params["team"] == "SS"
+            assert request.url.params["status"] == "completed"
+            return httpx.Response(200, json={"games": [{"id": 88}]})
+        assert request.url.path == "/api/v1/games/88/details"
+        return httpx.Response(200, json={"winningHit": "double"})
+
+    api = KboOpenApi("http://kbo.test", client=httpx.Client(transport=httpx.MockTransport(handler)))
+    result = api.fetch(
+        KboSource("detail", "오늘 삼성 경기 상세", "game_details", team="SS", use_today=True),
+        date(2026, 8, 5),
+    )
+
+    assert calls == ["/api/v1/games", "/api/v1/games/88/details"]
+    assert "선택 경기 ID: 88" in result
+
+
+def test_kbo_lineup_resolves_game_on_specified_date() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/api/v1/games":
+            assert request.url.params["date"] == "2026-08-03"
+            assert request.url.params["team"] == "SS"
+            return httpx.Response(200, json={"games": [{"id": 91}]})
+        assert request.url.path == "/api/v1/games/91/lineups"
+        return httpx.Response(200, json={"confirmed": True, "lineup": []})
+
+    api = KboOpenApi("http://kbo.test", client=httpx.Client(transport=httpx.MockTransport(handler)))
+    result = api.fetch(
+        KboSource(
+            "lineup",
+            "특정일 삼성 라인업",
+            "lineups",
+            team="SS",
+            reference_date="2026-08-03",
+        ),
+        date(2026, 8, 5),
+    )
+
+    assert "선택 경기 ID: 91" in result

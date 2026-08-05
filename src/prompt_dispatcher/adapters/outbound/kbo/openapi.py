@@ -33,10 +33,18 @@ class KboOpenApi:
     def fetch(self, source: KboSource, target_date: date) -> str:
         if source.data_type not in self._paths:
             raise ValueError(f"Unsupported KBO data type: {source.data_type}")
+        selected_date = self._selected_date(source, target_date)
+        if (
+            source.collect_before_fetch
+            and source.data_type in {"game_details", "lineups", "analysis"}
+            and not source.game_id
+            and selected_date
+        ):
+            self._collect_all(selected_date)
         if source.data_type in {"game_details", "lineups", "analysis"} and not source.game_id:
             source = replace(source, game_id=self._resolve_game_id(source, target_date))
         if source.collect_before_fetch:
-            self._collect(source, target_date)
+            self._collect(source, selected_date or target_date)
         params: dict[str, str | int] = {"limit": source.limit}
         if source.team:
             params["team"] = source.team
@@ -92,10 +100,19 @@ class KboOpenApi:
     def _resolve_game_id(self, source: KboSource, target_date: date) -> int:
         if not source.team:
             raise ValueError("경기 ID를 입력하거나 팀을 선택하세요.")
-        if source.data_type in {"lineups", "analysis"}:
+        selected_date = self._selected_date(source, target_date)
+        if selected_date or source.data_type in {"lineups", "analysis"}:
+            lookup_date = selected_date or target_date
+            params: dict[str, str | int] = {
+                "date": lookup_date.isoformat(),
+                "team": source.team,
+                "limit": 20,
+            }
+            if source.data_type == "game_details":
+                params["status"] = "completed"
             response = self._client.get(
                 f"{self._base_url}/api/v1/games",
-                params={"date": target_date.isoformat(), "team": source.team, "limit": 20},
+                params=params,
                 timeout=30,
             )
             response.raise_for_status()
@@ -105,6 +122,10 @@ class KboOpenApi:
                 for game in games:
                     if isinstance(game, dict) and isinstance(game.get("id"), int):
                         return int(game["id"])
+            if selected_date:
+                raise ValueError(
+                    f"팀 {source.team}의 {lookup_date.isoformat()} 경기에서 조회 가능한 게임을 찾지 못했습니다."
+                )
         response = self._client.get(
             f"{self._base_url}/api/v1/results/latest",
             params={"team": source.team, "limit": 1},
@@ -118,6 +139,14 @@ class KboOpenApi:
             if isinstance(game_id, int):
                 return game_id
         raise ValueError(f"팀 {source.team}의 조회 가능한 경기를 찾지 못했습니다.")
+
+    @staticmethod
+    def _selected_date(source: KboSource, target_date: date) -> date | None:
+        if source.use_today:
+            return target_date
+        if source.reference_date:
+            return date.fromisoformat(source.reference_date)
+        return None
 
     def test_connection(self) -> str:
         response = self._client.get(f"{self._base_url}/health/ready", timeout=10)
@@ -142,10 +171,17 @@ class KboOpenApi:
                 timeout=45,
             )
         else:
-            response = self._client.post(
-                f"{self._base_url}/internal/v1/collections/all",
-                headers=headers,
-                json={"targetDate": target_date.isoformat()},
-                timeout=45,
-            )
+            self._collect_all(target_date)
+            return
+        response.raise_for_status()
+
+    def _collect_all(self, target_date: date) -> None:
+        if not self._admin_api_key:
+            raise ValueError("KBO_ADMIN_API_KEY is required when collection refresh is enabled")
+        response = self._client.post(
+            f"{self._base_url}/internal/v1/collections/all",
+            headers={"Authorization": f"Bearer {self._admin_api_key}"},
+            json={"targetDate": target_date.isoformat()},
+            timeout=45,
+        )
         response.raise_for_status()
