@@ -576,3 +576,38 @@ def test_research_can_use_kbo_openapi_without_tavily() -> None:
 
     assert result.status == ExecutionStatus.SUCCESS
     assert "삼성 5 - 2 두산" in client.requests[0].prompt
+
+
+def test_research_test_runs_only_selected_task_without_delivery() -> None:
+    class FakeTavily:
+        def search(self, query: str, *_: object) -> tuple[tuple[str, str, str], ...]:
+            assert query == "KBO latest"
+            return (("경기", "https://example.com/game", "삼성 승리"),)
+
+    job = Job(
+        "kbo-test",
+        "KBO test",
+        True,
+        Schedule("0 7 * * *", "UTC"),
+        OpenWebUiOptions("model"),
+        PromptDefinition(text="should not run"),
+        (ChannelDestination("fake", "one"),),
+        research_tasks=(ResearchTask("result", "최근 경기", "KBO latest"),),
+    )
+    channel, client = FakeMessageChannel(), FakeOpenWebUiClient("리서치 응답")
+    use_case = RunJob(
+        InMemoryJobRepository([job]),
+        FakePromptLoader(),
+        JinjaTemplateRenderer(),
+        client,
+        InMemoryExecutionRepository(),
+        ChannelResolver([channel]),
+        FakeClock(datetime(2026, 1, 1, tzinfo=UTC)),
+        tavily=FakeTavily(),  # type: ignore[arg-type]
+    )
+
+    content = use_case.test_research("kbo-test", "result")
+
+    assert content == "리서치 응답"
+    assert len(client.requests) == 1
+    assert channel.sent_messages == []

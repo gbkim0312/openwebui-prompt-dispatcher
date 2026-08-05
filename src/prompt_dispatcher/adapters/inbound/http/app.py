@@ -349,6 +349,21 @@ def create_app(container: ApplicationContainer) -> FastAPI:
             raise HTTPException(422, str(error)) from error
         return {"status": "saved"}
 
+    @app.post("/api/jobs/{job_id}/research/{task_id}/test")
+    def test_research_task(job_id: str, task_id: str) -> dict[str, str]:
+        try:
+            content = container.run_job.test_research(job_id, task_id)
+        except Exception as error:
+            logger.warning(
+                "event=research_test_failed job_id=%s task_id=%s error_type=%s error_message=%s",
+                job_id,
+                task_id,
+                type(error).__name__,
+                str(error).replace("\n", " "),
+            )
+            raise HTTPException(422, str(error)) from error
+        return {"status": "ok", "content": content}
+
     @app.delete("/api/jobs/{job_id}")
     def delete_job(job_id: str) -> dict[str, str]:
         store.delete_job(job_id)

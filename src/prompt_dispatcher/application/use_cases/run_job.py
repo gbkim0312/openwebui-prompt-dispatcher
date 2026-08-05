@@ -401,6 +401,102 @@ class RunJob:
                 )
                 time.sleep(delay)
 
+    def test_research(self, job_id: str, task_id: str) -> str:
+        """Run one research task only, without a final prompt or channel delivery."""
+        job = self._jobs.find_by_id(job_id)
+        if job is None:
+            raise JobNotFoundError(f"Job not found: {job_id}")
+        task = next((item for item in job.research_tasks if item.id == task_id), None)
+        if task is None:
+            raise ValueError(f"Research task not found: {task_id}")
+        now = self._clock.now(job.schedule.timezone)
+        variables: dict[str, object] = {
+            "job_id": job.id,
+            "job_name": job.name,
+            "scheduled_time": now.isoformat(),
+            "execution_time": now.isoformat(),
+            "current_date": now.date().isoformat(),
+            "current_datetime": now.isoformat(),
+            "timezone": job.schedule.timezone,
+        }
+        model: str | None = None
+        if task.use_prompt:
+            model = job.openwebui_options.model if job.research_use_parent_model else task.model
+            if not model:
+                raise ValueError(f"Research task model is required: {task.id}")
+            self._assert_single_model_available_with_retry(job, model)
+        source_context: list[str] = []
+        if task.kbo_sources:
+            if self._kbo is None:
+                raise ValueError("KBO OpenAPI is not configured")
+            for source in task.kbo_sources:
+                source_context.append("--- KBO 공식 데이터 ---\n" + self._kbo.fetch(source, now.date()))
+        if task.weather_sources:
+            if self._weather is None:
+                raise ValueError("Weather service is not configured")
+            source_context.append(
+                "--- 구조화 날씨 데이터 ---\n"
+                + "\n\n".join(self._weather.fetch(source) for source in task.weather_sources)
+            )
+        if task.use_web_search:
+            if self._tavily is None:
+                raise ValueError("TAVILY_API_KEY is required for Web Search with Tavily")
+            search_query = self._renderer.render(task.query, variables)
+            results = self._tavily.search(
+                search_query,
+                task.time_range,
+                task.topic,
+                task.search_depth,
+                task.max_results,
+                task.include_domains,
+                task.exclude_domains,
+                task.include_raw_content,
+            )
+            source_context.append("--- Tavily 검색 결과 ---\n" + format_tavily_results(results))
+        if not task.use_prompt:
+            return "\n\n".join(source_context)
+        assert model is not None
+        instruction = self._renderer.render(
+            task.summary_prompt
+            or f"{task.name} 관련 검색 결과를 한국어로 핵심 사실과 출처 중심으로 요약하세요.",
+            variables,
+        )
+        response = self._generate_with_retry(
+            OpenWebUiRequest(model, instruction + "\n\n" + "\n\n".join(source_context)), job
+        )
+        if not response.content.strip():
+            raise ValueError(f"Research task returned empty content: {task.id}")
+        return response.content
+
+    def _assert_single_model_available_with_retry(self, job: Job, model: str) -> None:
+        if self._model_catalog is None:
+            return
+        for attempt in range(job.execution_policy.retry_count + 1):
+            try:
+                self._model_catalog.refresh()
+                if model not in self._model_catalog.list_models():
+                    raise OpenWebUiError(f"Open WebUI model not available: {model}")
+                return
+            except OpenWebUiError:
+                if attempt >= job.execution_policy.retry_count:
+                    raise
+                time.sleep(max(1, job.execution_policy.retry_delay_seconds))
+            except Exception as error:
+                if attempt >= job.execution_policy.retry_count:
+                    raise OpenWebUiError(
+                        "Open WebUI model availability could not be verified; "
+                        "Tavily search was not started"
+                    ) from error
+                delay = max(1, job.execution_policy.retry_delay_seconds)
+                logger.warning(
+                    "event=model_preflight_retry job_id=%s attempt=%s delay_seconds=%s error_type=%s",
+                    job.id,
+                    attempt + 1,
+                    delay,
+                    type(error).__name__,
+                )
+                time.sleep(delay)
+
     @staticmethod
     def _assert_models_available(
         job: Job, scheduled_time: datetime, available_models: set[str]
