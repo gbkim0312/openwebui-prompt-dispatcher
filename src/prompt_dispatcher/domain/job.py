@@ -99,6 +99,7 @@ class KboSource:
     range_days: int = 1
     status: str | None = None
     league_type: str | None = None
+    reference_date: str | None = None
 
 
 @dataclass(frozen=True)

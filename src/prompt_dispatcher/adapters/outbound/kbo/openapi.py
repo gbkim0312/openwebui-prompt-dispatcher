@@ -51,7 +51,7 @@ class KboOpenApi:
             if source.league_type:
                 params["leagueType"] = source.league_type
         elif source.data_type == "rankings":
-            params = {"date": target_date.isoformat()}
+            params = {"date": source.reference_date} if source.reference_date else {}
         elif source.data_type == "player_stats":
             params["season"] = source.season or target_date.year
             params["role"] = source.role

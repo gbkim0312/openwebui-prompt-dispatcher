@@ -309,6 +309,7 @@ def create_app(container: ApplicationContainer) -> FastAPI:
                                     "range_days": source.range_days,
                                     "status": source.status,
                                     "league_type": source.league_type,
+                                    "reference_date": source.reference_date,
                                 }
                                 for source in task.kbo_sources
                             ],

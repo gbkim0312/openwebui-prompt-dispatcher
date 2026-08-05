@@ -1,3 +1,4 @@
+from datetime import date
 from pathlib import Path
 from typing import Any
 from zoneinfo import ZoneInfo
@@ -263,6 +264,12 @@ class YamlJobRepository:
         if status and status not in {"scheduled", "in_progress", "completed", "cancelled"}:
             raise JobValidationError("KBO source status is invalid")
         league_type = str(raw["league_type"]) if raw.get("league_type") else None
+        reference_date = str(raw["reference_date"]) if raw.get("reference_date") else None
+        if reference_date:
+            try:
+                date.fromisoformat(reference_date)
+            except ValueError as exc:
+                raise JobValidationError("KBO source reference_date must be YYYY-MM-DD") from exc
         return KboSource(
             source_id,
             str(raw.get("name") or source_id),
@@ -276,6 +283,7 @@ class YamlJobRepository:
             range_days,
             status,
             league_type,
+            reference_date,
         )
 
     def find_all(self) -> list[Job]:

@@ -77,3 +77,13 @@ def test_kbo_openapi_resolves_game_id_from_team() -> None:
 
     assert calls == ["/api/v1/results/latest", "/api/v1/games/73/details"]
     assert "선택 경기 ID: 73" in result
+
+
+def test_kbo_rankings_omits_date_when_not_selected() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        assert request.url.path == "/api/v1/rankings"
+        assert "date" not in request.url.params
+        return httpx.Response(200, json={"rankings": []})
+
+    api = KboOpenApi("http://kbo.test", client=httpx.Client(transport=httpx.MockTransport(handler)))
+    api.fetch(KboSource("ranking", "최신 순위", "rankings"), date(2026, 8, 5))
