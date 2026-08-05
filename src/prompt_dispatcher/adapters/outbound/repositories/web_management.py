@@ -6,6 +6,7 @@ from typing import Any
 
 import yaml
 
+from prompt_dispatcher.adapters.outbound.repositories.yaml_job import YamlJobRepository
 from prompt_dispatcher.domain.errors import JobValidationError
 
 
@@ -37,11 +38,20 @@ class WebManagementStore:
         prompt_config["file"] = f"{job_id}.md"
         prompt_config.pop("text", None)
         payload["prompt"] = prompt_config
+        serialized = yaml.safe_dump(payload, allow_unicode=True, sort_keys=False)
+        self._validate_job_document(serialized)
         self._write(self._prompts / f"{job_id}.md", prompt)
-        self._write(
-            self._jobs / f"{job_id}.job.yaml",
-            yaml.safe_dump(payload, allow_unicode=True, sort_keys=False),
-        )
+        self._write(self._jobs / f"{job_id}.job.yaml", serialized)
+
+    @staticmethod
+    def _validate_job_document(serialized: str) -> None:
+        """Validate in isolation so a rejected web edit never replaces the existing job."""
+        with tempfile.TemporaryDirectory() as temporary:
+            path = Path(temporary) / "candidate.job.yaml"
+            path.write_text(serialized, encoding="utf-8")
+            errors = YamlJobRepository(Path(temporary)).errors
+        if errors:
+            raise JobValidationError(errors[0].split(": ", 1)[-1])
 
     def read_prompt(self, job_id: str) -> str:
         path = self._prompts / f"{self._safe_id(job_id)}.md"
