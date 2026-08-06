@@ -1,0 +1,1 @@
+"""Job Collector API adapters."""

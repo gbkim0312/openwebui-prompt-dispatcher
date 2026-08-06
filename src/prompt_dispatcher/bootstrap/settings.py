@@ -66,6 +66,8 @@ class Settings:
     kakao_rest_api_key: str
     kbo_api_base_url: str
     kbo_admin_api_key: str
+    job_collector_base_url: str
+    job_collector_admin_api_key: str
 
     @classmethod
     def from_environment(cls) -> "Settings":
@@ -113,4 +115,6 @@ class Settings:
             managed_value("KAKAO_REST_API_KEY"),
             managed_value("KBO_API_BASE_URL", "http://localhost:8085").rstrip("/"),
             managed_value("KBO_ADMIN_API_KEY"),
+            managed_value("JOB_COLLECTOR_BASE_URL", "http://localhost:8000").rstrip("/"),
+            managed_value("JOB_COLLECTOR_ADMIN_API_KEY"),
         )

@@ -14,6 +14,7 @@ from prompt_dispatcher.adapters.outbound.channels.smtp_email import SmtpEmailCha
 from prompt_dispatcher.adapters.outbound.channels.telegram import TelegramChannel
 from prompt_dispatcher.adapters.outbound.geocoding.kakao import KakaoGeocoder
 from prompt_dispatcher.adapters.outbound.kbo.openapi import KboOpenApi
+from prompt_dispatcher.adapters.outbound.job_collector.client import JobCollectorClient
 from prompt_dispatcher.adapters.outbound.repositories.web_management import WebManagementStore
 from prompt_dispatcher.adapters.outbound.weather.kma import KmaWeather
 from prompt_dispatcher.adapters.outbound.weather.open_meteo import OpenMeteoWeather
@@ -464,10 +465,58 @@ def create_app(container: ApplicationContainer) -> FastAPI:
             scheduled = reload_runtime()
         except Exception as error:
             raise HTTPException(422, str(error)) from error
+        profile_message = ""
+        if "JOB_COLLECTOR_BASE_URL" in payload.values or "JOB_COLLECTOR_ADMIN_API_KEY" in payload.values:
+            try:
+                refreshed = Settings.from_environment()
+                profiles = JobCollectorClient(
+                    refreshed.job_collector_base_url, refreshed.job_collector_admin_api_key
+                ).list_profiles()
+                store.save_secrets(
+                    {"JOB_COLLECTOR_PROFILES_JSON": json.dumps(profiles, ensure_ascii=False)}
+                )
+                profile_message = f" Job Collector 프로필 {len(profiles)}개를 저장했습니다."
+                logger.info("event=job_collector_profiles_loaded count=%s", len(profiles))
+            except Exception as error:
+                logger.warning(
+                    "event=job_collector_profiles_load_failed error_type=%s",
+                    type(error).__name__,
+                )
+                profile_message = " Job Collector 프로필은 불러오지 못했지만 기존 캐시는 유지했습니다."
         return {
             "status": "saved",
-            "message": f"설정이 즉시 반영되었습니다. 예약 작업 {scheduled}개를 다시 등록했습니다.",
+            "message": f"설정이 즉시 반영되었습니다. 예약 작업 {scheduled}개를 다시 등록했습니다.{profile_message}",
         }
+
+    @app.get("/api/job-collector/profiles")
+    def job_collector_profiles() -> dict[str, object]:
+        values = store.read_values()
+        raw = values.get("JOB_COLLECTOR_PROFILES_JSON", "")
+        try:
+            profiles = json.loads(raw) if raw else []
+        except json.JSONDecodeError:
+            profiles = []
+        return {"items": profiles if isinstance(profiles, list) else [], "cached": bool(raw)}
+
+    @app.post("/api/job-collector/profiles/refresh")
+    def refresh_job_collector_profiles() -> dict[str, object]:
+        settings = Settings.from_environment()
+        try:
+            profiles = JobCollectorClient(
+                settings.job_collector_base_url, settings.job_collector_admin_api_key
+            ).list_profiles()
+            store.save_secrets(
+                {"JOB_COLLECTOR_PROFILES_JSON": json.dumps(profiles, ensure_ascii=False)}
+            )
+            logger.info("event=job_collector_profiles_refreshed count=%s", len(profiles))
+            return {"items": profiles, "message": f"프로필 {len(profiles)}개를 저장했습니다."}
+        except Exception as error:
+            detail = str(error).replace("\n", " ")
+            logger.warning(
+                "event=job_collector_profiles_refresh_failed error_type=%s",
+                type(error).__name__,
+            )
+            raise HTTPException(422, detail) from error
 
     @app.post("/api/settings/test/{channel_type}")
     def test_connection(

@@ -92,6 +92,9 @@ class WebManagementStore:
             "KAKAO_REST_API_KEY",
             "KBO_API_BASE_URL",
             "KBO_ADMIN_API_KEY",
+            "JOB_COLLECTOR_BASE_URL",
+            "JOB_COLLECTOR_ADMIN_API_KEY",
+            "JOB_COLLECTOR_PROFILES_JSON",
         }
         stored: dict[str, str] = {}
         if self._secrets.exists():
@@ -128,6 +131,9 @@ class WebManagementStore:
             "KAKAO_REST_API_KEY",
             "KBO_API_BASE_URL",
             "KBO_ADMIN_API_KEY",
+            "JOB_COLLECTOR_BASE_URL",
+            "JOB_COLLECTOR_ADMIN_API_KEY",
+            "JOB_COLLECTOR_PROFILES_JSON",
         }
         old = {}
         if self._secrets.exists():
