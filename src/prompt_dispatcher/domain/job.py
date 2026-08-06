@@ -6,6 +6,8 @@ from dataclasses import dataclass, field
 class Schedule:
     cron: str
     timezone: str
+    run_at: str | None = None
+    id: str = "default"
 
 
 @dataclass(frozen=True)
@@ -112,6 +114,7 @@ class Job:
     openwebui_options: OpenWebUiOptions
     prompt_definition: PromptDefinition
     destinations: tuple[ChannelDestination, ...]
+    schedules: tuple[Schedule, ...] = ()
     execution_policy: ExecutionPolicy = field(default_factory=ExecutionPolicy)
     research_tasks: tuple[ResearchTask, ...] = ()
     research_use_parent_model: bool = True

@@ -1,5 +1,5 @@
 import re
-from datetime import date
+from datetime import date, datetime
 from pathlib import Path
 from typing import Any
 from zoneinfo import ZoneInfo
@@ -91,6 +91,41 @@ class YamlJobRepository:
             raise JobValidationError(
                 f"research task ids must be unique: {', '.join(duplicate_ids)}"
             )
+        primary_schedule = Schedule(cron, schedule["timezone"], id="default")
+        schedules = [primary_schedule]
+        schedule_ids = {"default"}
+        for index, item in enumerate(raw.get("schedules", []) or [], start=1):
+            if not isinstance(item, dict):
+                raise JobValidationError("schedules entries must be mappings")
+            timezone = str(item.get("timezone", schedule["timezone"]))
+            try:
+                ZoneInfo(timezone)
+            except Exception as exc:
+                raise JobValidationError("schedule timezone must be valid IANA name") from exc
+            schedule_id = str(item.get("id", f"schedule-{index}"))
+            if not schedule_id or schedule_id in schedule_ids:
+                raise JobValidationError(f"duplicate schedule id: {schedule_id}")
+            schedule_ids.add(schedule_id)
+            item_cron = str(item.get("cron", "")).strip()
+            run_at = item.get("run_at")
+            if item_cron and run_at:
+                raise JobValidationError("a schedule cannot contain both cron and run_at")
+            if item_cron:
+                try:
+                    CronTrigger.from_crontab(item_cron, timezone=timezone)
+                except (TypeError, ValueError) as exc:
+                    raise JobValidationError(f"invalid schedule cron expression: {exc}") from exc
+                schedules.append(Schedule(item_cron, timezone, id=schedule_id))
+            elif run_at:
+                try:
+                    parsed = datetime.fromisoformat(str(run_at).replace("Z", "+00:00"))
+                    if parsed.tzinfo is None:
+                        parsed = parsed.replace(tzinfo=ZoneInfo(timezone))
+                except (TypeError, ValueError) as exc:
+                    raise JobValidationError(f"invalid one-time run_at: {exc}") from exc
+                schedules.append(Schedule("", timezone, parsed.isoformat(), schedule_id))
+            else:
+                raise JobValidationError("additional schedule requires cron or run_at")
         return Job(
             raw["id"],
             raw.get("name", raw["id"]),
@@ -115,6 +150,7 @@ class YamlJobRepository:
                 ChannelDestination(item["type"], item["target"], item.get("options", {}))
                 for item in channels
             ),
+            tuple(schedules[1:]),
             ExecutionPolicy(
                 int(execution.get("max_instances", 1)),
                 bool(execution.get("skip_if_previous_running", True)),

@@ -230,6 +230,15 @@ def create_app(container: ApplicationContainer) -> FastAPI:
                 "name": job.name,
                 "enabled": job.enabled,
                 "schedule": {"cron": job.schedule.cron, "timezone": job.schedule.timezone},
+                "schedules": [
+                    {
+                        "id": schedule.id,
+                        "cron": schedule.cron,
+                        "timezone": schedule.timezone,
+                        **({"run_at": schedule.run_at} if schedule.run_at else {}),
+                    }
+                    for schedule in job.schedules
+                ],
                 "openwebui": {
                     "model": job.openwebui_options.model,
                     "skill_ids": list(job.openwebui_options.skill_ids),

@@ -22,8 +22,10 @@ class RegisterSchedules:
                     self._run.execute(RunJobCommand(job_id))
 
                 try:
-                    self._scheduler.register(job, callback)
-                    count += 1
+                    schedules = (job.schedule, *job.schedules)
+                    for schedule in schedules:
+                        self._scheduler.register(job, callback, schedule, schedule.id)
+                        count += 1
                 except Exception as exc:
                     logger.error(
                         "event=schedule_registration_failed job_id=%s error_type=%s error=%s",
