@@ -54,17 +54,30 @@ class YamlJobRepository:
             raw.get("context_sources", {}),
         )
         cron = str(schedule.get("cron", ""))
-        fields = cron.split()
-        if len(fields) != 5:
-            raise JobValidationError("cron must have 5 fields")
+        primary_run_at = schedule.get("run_at")
+        if cron and primary_run_at:
+            raise JobValidationError("schedule cannot contain both cron and run_at")
         try:
             ZoneInfo(schedule.get("timezone", ""))
         except Exception as exc:
             raise JobValidationError("timezone must be valid IANA name") from exc
-        try:
-            CronTrigger.from_crontab(cron, timezone=schedule["timezone"])
-        except (KeyError, TypeError, ValueError) as exc:
-            raise JobValidationError(f"invalid cron expression: {exc}") from exc
+        if cron:
+            if len(cron.split()) != 5:
+                raise JobValidationError("cron must have 5 fields")
+            try:
+                CronTrigger.from_crontab(cron, timezone=schedule["timezone"])
+            except (KeyError, TypeError, ValueError) as exc:
+                raise JobValidationError(f"invalid cron expression: {exc}") from exc
+        elif primary_run_at:
+            try:
+                parsed_primary = datetime.fromisoformat(str(primary_run_at).replace("Z", "+00:00"))
+                if parsed_primary.tzinfo is None:
+                    parsed_primary = parsed_primary.replace(tzinfo=ZoneInfo(schedule["timezone"]))
+                primary_run_at = parsed_primary.isoformat()
+            except (TypeError, ValueError) as exc:
+                raise JobValidationError(f"invalid one-time run_at: {exc}") from exc
+        else:
+            raise JobValidationError("schedule requires cron or run_at")
         if bool(prompt.get("file")) == bool(prompt.get("text")):
             raise JobValidationError("prompt requires exactly one of file or text")
         channels = delivery.get("channels", [])
@@ -91,7 +104,7 @@ class YamlJobRepository:
             raise JobValidationError(
                 f"research task ids must be unique: {', '.join(duplicate_ids)}"
             )
-        primary_schedule = Schedule(cron, schedule["timezone"], id="default")
+        primary_schedule = Schedule(cron, schedule["timezone"], primary_run_at, "default")
         schedules = [primary_schedule]
         schedule_ids = {"default"}
         for index, item in enumerate(raw.get("schedules", []) or [], start=1):

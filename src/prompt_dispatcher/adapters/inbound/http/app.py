@@ -229,7 +229,11 @@ def create_app(container: ApplicationContainer) -> FastAPI:
                 "id": job.id,
                 "name": job.name,
                 "enabled": job.enabled,
-                "schedule": {"cron": job.schedule.cron, "timezone": job.schedule.timezone},
+                "schedule": {
+                    "cron": job.schedule.cron,
+                    "timezone": job.schedule.timezone,
+                    **({"run_at": job.schedule.run_at} if job.schedule.run_at else {}),
+                },
                 "schedules": [
                     {
                         "id": schedule.id,
