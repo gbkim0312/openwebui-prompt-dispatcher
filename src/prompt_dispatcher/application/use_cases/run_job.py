@@ -85,7 +85,7 @@ class RunJob:
             logger.info("event=job_skipped job_id=%s reason=duplicate_schedule", job.id)
             return RunJobResult(None, ExecutionStatus.SKIPPED, "Duplicate scheduled execution")
         try:
-            if not command.skip_openwebui:
+            if job.execution_mode == "llm" and not command.skip_openwebui:
                 self._assert_models_available_with_retry(job, scheduled)
             template = self._prompts.load(job.prompt_definition)
             variables = dict(job.prompt_definition.variables) | {
@@ -230,7 +230,7 @@ class RunJob:
                     if task.enabled and task.id in research_results
                 )
             prompt = self._renderer.render(template, variables)
-            if command.skip_openwebui:
+            if job.execution_mode == "direct_message" or command.skip_openwebui:
                 content = prompt
             else:
                 tool_ids: tuple[str, ...] = ()

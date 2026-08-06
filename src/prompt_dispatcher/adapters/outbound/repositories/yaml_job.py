@@ -83,8 +83,13 @@ class YamlJobRepository:
         channels = delivery.get("channels", [])
         if not channels:
             raise JobValidationError("at least one channel is required")
-        if not raw.get("id") or not webui.get("model"):
-            raise JobValidationError("id and openwebui.model are required")
+        execution_mode = str(raw.get("execution_mode", "llm"))
+        if execution_mode not in {"llm", "direct_message"}:
+            raise JobValidationError("execution_mode must be llm or direct_message")
+        if not raw.get("id"):
+            raise JobValidationError("id is required")
+        if execution_mode == "llm" and not webui.get("model"):
+            raise JobValidationError("openwebui.model is required for llm jobs")
         search_range = webui.get("web_search_time_range")
         if search_range is not None and search_range not in {"day", "week", "month", "year"}:
             raise JobValidationError("web_search_time_range must be day, week, month, or year")
@@ -98,6 +103,8 @@ class YamlJobRepository:
         if not 1 <= max_results <= 20:
             raise JobValidationError("web_search_max_results must be between 1 and 20")
         research_tasks = tuple(self._map_research_task(item) for item in research.get("tasks", []))
+        if execution_mode == "direct_message" and research_tasks:
+            raise JobValidationError("direct_message jobs cannot contain research tasks")
         task_ids = [task.id for task in research_tasks]
         if len(set(task_ids)) != len(task_ids):
             duplicate_ids = sorted({task_id for task_id in task_ids if task_ids.count(task_id) > 1})
@@ -143,9 +150,9 @@ class YamlJobRepository:
             raw["id"],
             raw.get("name", raw["id"]),
             bool(raw.get("enabled", True)),
-            Schedule(cron, schedule["timezone"]),
+            primary_schedule,
             OpenWebUiOptions(
-                webui["model"],
+                str(webui.get("model", "")),
                 tuple(webui.get("skill_ids", [])),
                 tuple(webui.get("tool_ids", [])),
                 tuple(webui.get("required_tool_ids", [])),
@@ -164,6 +171,7 @@ class YamlJobRepository:
                 for item in channels
             ),
             tuple(schedules[1:]),
+            execution_mode,
             ExecutionPolicy(
                 int(execution.get("max_instances", 1)),
                 bool(execution.get("skip_if_previous_running", True)),

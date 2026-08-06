@@ -113,6 +113,7 @@ def create_app(container: ApplicationContainer) -> FastAPI:
                 "id": job.id,
                 "name": job.name,
                 "enabled": job.enabled,
+                "execution_mode": job.execution_mode,
                 "cron": job.schedule.cron,
                 "timezone": job.schedule.timezone,
                 "channels": [destination.channel_type for destination in job.destinations],
@@ -229,6 +230,7 @@ def create_app(container: ApplicationContainer) -> FastAPI:
                 "id": job.id,
                 "name": job.name,
                 "enabled": job.enabled,
+                "execution_mode": job.execution_mode,
                 "schedule": {
                     "cron": job.schedule.cron,
                     "timezone": job.schedule.timezone,

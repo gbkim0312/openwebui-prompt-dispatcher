@@ -115,6 +115,7 @@ class Job:
     prompt_definition: PromptDefinition
     destinations: tuple[ChannelDestination, ...]
     schedules: tuple[Schedule, ...] = ()
+    execution_mode: str = "llm"
     execution_policy: ExecutionPolicy = field(default_factory=ExecutionPolicy)
     research_tasks: tuple[ResearchTask, ...] = ()
     research_use_parent_model: bool = True
