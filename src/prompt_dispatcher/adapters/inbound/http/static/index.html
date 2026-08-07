@@ -667,12 +667,25 @@ upgradeKboSourceControls();
 </script><style>.research-id-invalid{border-color:#b21f2d!important}.research-id-error{margin:5px 0 0;color:#b21f2d;font-size:12px}.research-result-count-hint{margin:4px 0 0}.research-failure-policy{margin-top:5px!important}.prompt-variable-help{margin-top:10px;color:#536477;font-size:13px}.prompt-variable-help summary{cursor:pointer;font-weight:600}.prompt-variable-help ul{margin:8px 0 0;padding-left:20px;display:grid;gap:3px}</style><script>
 async function hydrateResearchCollectorProfiles(fields, selected){
   const select=fields.querySelector('.research-collector-profile');if(!select)return;
+  /* Model and profile requests race during editor initialization.  Keep the
+     persisted value selectable while the profile request is in flight so a
+     model refresh cannot serialize it as an empty profile_id. */
+  const saved=selected||select.value||'';
+  if(saved){
+    select.replaceChildren(new Option(`현재 선택: ${saved}`,saved,true,true));
+    select.value=saved;
+  }
   try{
     const data=await api('/api/job-collector/profiles'),profiles=data.items||[];
     select.replaceChildren(new Option('프로필 미사용 — 저장된 전체 공고 조회',''));
     for(const profile of profiles){const id=String(profile.id||'');if(!id)continue;select.add(new Option(String(profile.display_name||profile.name||id)+` (${id})`,id))}
-    select.value=selected||'';
-  }catch(error){select.title='프로필 캐시를 불러오지 못했습니다: '+error.message}
+    if(saved&&![...select.options].some(option=>option.value===saved))select.add(new Option(`현재 선택: ${saved}`,saved));
+    select.value=saved;
+  }catch(error){
+    if(saved&&![...select.options].some(option=>option.value===saved))select.add(new Option(`현재 선택: ${saved}`,saved));
+    select.value=saved;
+    select.title='프로필 캐시를 불러오지 못했습니다: '+error.message;
+  }
 }
 function collectorMultiSelect(name, options, selected){const chosen=new Set(selected||[]);return `<div class="collector-multiselect" data-name="${name}"><button type="button" class="secondary collector-multiselect-toggle">선택 없음 ▾</button><div class="collector-multiselect-menu">${options.map(([value,label])=>`<label><input type="checkbox" value="${value}" ${chosen.has(value)?'checked':''}> ${label}</label>`).join('')}</div></div>`}
 function bindCollectorMultiSelect(fields){fields.querySelectorAll('.collector-multiselect').forEach(control=>{const button=control.querySelector('.collector-multiselect-toggle'),menu=control.querySelector('.collector-multiselect-menu'),update=()=>{const values=[...control.querySelectorAll('input:checked')].map(input=>input.value);button.textContent=values.length?`${values.length}개 선택 ▾`:'선택 없음 ▾'};button.onclick=()=>{menu.hidden=!menu.hidden};control.querySelectorAll('input').forEach(input=>input.addEventListener('change',update));menu.hidden=true;update()})}
