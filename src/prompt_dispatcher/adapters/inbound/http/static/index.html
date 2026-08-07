@@ -679,7 +679,7 @@ async function hydrateResearchCollectorProfiles(fields, selected){
 function upgradeResearchCollectorCards(){
   document.querySelectorAll('#research-task-list .settings-group').forEach((card,index)=>{
     if(card.querySelector('.research-collector-source'))return;
-    const sources=card.querySelector('.research-source-options');if(!sources)return;
+    const sources=card.querySelectorAll('.research-source-options')[1];if(!sources)return;
     const task=researchTasksUi[index]||{},source=task.job_collector_sources?.[0]||{};
     sources.insertAdjacentHTML('beforeend',`<label><input class="research-use-job-collector" type="checkbox" ${(task.job_collector_sources||[]).length?'checked':''}> 채용 공고 OpenAPI</label>`);
     const fields=document.createElement('section');fields.className='wide research-collector-source';
