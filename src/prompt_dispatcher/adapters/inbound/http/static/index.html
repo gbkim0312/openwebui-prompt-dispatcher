@@ -526,7 +526,13 @@ function updateResearchDataSourceVisibility(){
     const prompt=card.querySelector('.research-summary')?.closest('.wide'),model=card.querySelector('.research-model-wrap');
     if(promptToggle&&prompt)prompt.hidden=!promptToggle.checked;
     if(promptToggle&&model)model.hidden=!promptToggle.checked;
-    if(web&&search)search.hidden=!web.checked;
+    if(web&&search){
+      search.hidden=!web.checked;
+      /* The legacy search field was hidden before it was moved into a source
+         card.  Do not let that inherited hidden state conceal every newly
+         added web-search source. */
+      if(web.checked)search.querySelectorAll('.research-web-source').forEach(source=>source.hidden=false);
+    }
     if(weather&&weatherFields)weatherFields.hidden=!weather.checked;
   }
 }
