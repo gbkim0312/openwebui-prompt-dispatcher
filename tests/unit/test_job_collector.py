@@ -33,9 +33,9 @@ def test_job_collector_fetches_saved_postings_with_filters() -> None:
     assert "교육 콘텐츠 개발자" in result
 
 
-def test_job_collector_normalizes_legacy_korean_employment_values() -> None:
+def test_job_collector_preserves_employment_filter_values() -> None:
     def handler(request: httpx.Request) -> httpx.Response:
-        assert request.url.params["employment_types"] == "FULL_TIME,CONTRACT"
+        assert request.url.params["employment_types"] == "정규직,계약직"
         return httpx.Response(200, json={"items": []})
 
     client = JobCollectorClient(
