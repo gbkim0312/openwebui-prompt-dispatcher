@@ -10,6 +10,7 @@ def test_job_collector_fetches_saved_postings_with_filters() -> None:
         assert request.url.params["profile_id"] == "education"
         assert request.url.params["keyword"] == "콘텐츠 개발"
         assert request.url.params["statuses"] == "ACTIVE"
+        assert request.url.params["employment_types"] == "정규직"
         assert request.headers["authorization"] == "Bearer admin-key"
         return httpx.Response(200, json={"items": [{"title": "교육 콘텐츠 개발자"}]})
 
@@ -24,6 +25,7 @@ def test_job_collector_fetches_saved_postings_with_filters() -> None:
             "교육 공고",
             profile_id="education",
             keyword="콘텐츠 개발",
+            employment_types=("FULL_TIME",),
         )
     )
 

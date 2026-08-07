@@ -43,6 +43,13 @@ class JobCollectorClient:
 
     def fetch(self, source: JobCollectorSource) -> str:
         """Fetch only already-collected postings and format them for a research task."""
+        employment_aliases = {
+            "FULL_TIME": "정규직",
+            "CONTRACT": "계약직",
+            "PART_TIME": "시간제",
+            "INTERN": "인턴",
+            "FREELANCE": "프리랜서",
+        }
         params: dict[str, str | int] = {"limit": source.limit, "sort": source.sort}
         scalar_filters = {
             "profile_id": source.profile_id,
@@ -57,7 +64,9 @@ class JobCollectorClient:
             "statuses": source.statuses,
             "categories": source.categories,
             "skills": source.skills,
-            "employment_types": source.employment_types,
+            "employment_types": tuple(
+                employment_aliases.get(value.upper(), value) for value in source.employment_types
+            ),
             "experience_types": source.experience_types,
         }
         params.update(
