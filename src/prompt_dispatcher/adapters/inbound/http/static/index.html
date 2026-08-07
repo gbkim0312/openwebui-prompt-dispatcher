@@ -90,13 +90,11 @@ saveJob=async function(){const tasks=collectResearchTasks(),useParentModel=$('#r
 #research-task-list .settings-group>.row{margin-bottom:8px}
 </style><script>
 function decorateResearchCards(){for(const card of document.querySelectorAll('#research-task-list .settings-group:not([data-collapse-ready])')){card.dataset.collapseReady='true';card.classList.add('research-collapsed');const header=card.querySelector(':scope > .row'),toggle=document.createElement('button');toggle.type='button';toggle.className='secondary research-toggle';toggle.textContent='펼치기';toggle.onclick=()=>{const collapsed=card.classList.toggle('research-collapsed');toggle.textContent=collapsed?'펼치기':'접기'};header?.insertBefore(toggle,header.querySelector('.danger'))}}
-new MutationObserver(decorateResearchCards).observe(document.body,{childList:true,subtree:true});
 decorateResearchCards();
 </script><script>
 let expandNextResearchCard=false;
 window.addResearchTask=function(){const cards=[...document.querySelectorAll('#research-task-list .settings-group')];let current=researchTasksUi.slice();try{current=collectResearchTasks()}catch(error){console.warn('research task state was not fully collected before adding a card',error)}researchTasksUi=current.map((task,index)=>({...task,_expanded:!cards[index]?.classList.contains('research-collapsed')}));researchTasksUi.push({...researchTaskDefault(),_expanded:true});renderResearchTasksWithModels();setTimeout(()=>{for(const [index,card] of [...document.querySelectorAll('#research-task-list .settings-group')].entries()){const expanded=researchTasksUi[index]?._expanded===true;card.classList.toggle('research-collapsed',!expanded);const toggle=card.querySelector('.research-toggle');if(toggle)toggle.textContent=expanded?'접기':'펼치기'}},0)};
 function labelResearchCards(){for(const card of document.querySelectorAll('#research-task-list .settings-group')){const header=card.querySelector(':scope > .row'),title=header?.querySelector('h3'),input=card.querySelector('.research-name');if(!header||!title||!input)continue;const index=[...document.querySelectorAll('#research-task-list .settings-group')].indexOf(card)+1,summary=header.querySelector('.research-model-summary')||document.createElement('span'),refresh=()=>{const name=input.value.trim()||`리서치 ${index}`;if(title.textContent!==name)title.textContent=name};summary.className='research-model-summary';if(!summary.parentElement)header.insertBefore(summary,header.querySelector('.research-toggle'));refresh();if(card.dataset.titleReady)continue;card.dataset.titleReady='true';input.addEventListener('input',refresh)}}
-new MutationObserver(labelResearchCards).observe(document.body,{childList:true,subtree:true});
 labelResearchCards();
 </script><style>
 #research-task-list .research-collapsed>.cols{display:none}
@@ -143,7 +141,6 @@ function decorateResearchActivation(){const cards=[...document.querySelectorAll(
 function setAllResearchEnabled(enabled){decorateResearchActivation();for(const card of document.querySelectorAll('#research-task-list .settings-group')){const input=card.querySelector('.research-enabled');if(input)input.checked=enabled;card.classList.toggle('research-inactive',!enabled)}researchTasksUi=collectResearchTasks()}
 function addResearchBulkControls(){const header=$('#research-form .research-section-header');if(!header||header.dataset.bulkControlsReady)return;header.dataset.bulkControlsReady='true';const controls=document.createElement('div');controls.className='row research-bulk-controls';controls.innerHTML='<button class="secondary" type="button" onclick="setAllResearchEnabled(true)">전체 활성화</button><button class="secondary" type="button" onclick="setAllResearchEnabled(false)">전체 비활성화</button>';header.append(controls)}
 window.setAllResearchEnabled=setAllResearchEnabled;
-new MutationObserver(()=>{decorateResearchActivation();addResearchBulkControls()}).observe(document.body,{childList:true,subtree:true});
 decorateResearchActivation();addResearchBulkControls();
 </script><style>
 #research-task-list .research-inactive{background:#eef1f4;border-style:dashed;opacity:.62;filter:grayscale(.7)}
@@ -385,7 +382,6 @@ function refreshResearchCardSummaries(){
 }
 document.addEventListener('change',event=>{if(event.target.matches?.('.research-day,.research-model,.research-depth,.research-raw-content input,.research-use-prompt,#schedule-picker input'))queueMicrotask(refreshResearchCardSummaries)});
 document.addEventListener('input',event=>{if(event.target.matches?.('.research-name'))queueMicrotask(refreshResearchCardSummaries)});
-new MutationObserver(refreshResearchCardSummaries).observe(document.body,{childList:true,subtree:true});
 refreshResearchCardSummaries();
 function decorateResearchRawContent(){
   document.querySelectorAll('#research-task-list .settings-group').forEach((card,index)=>{
@@ -399,7 +395,6 @@ function decorateResearchRawContent(){
 }
 const collectResearchTasksBeforeRawContent=collectResearchTasks;
 collectResearchTasks=function(){const cards=[...document.querySelectorAll('#research-task-list .settings-group')];return collectResearchTasksBeforeRawContent().map((task,index)=>({...task,include_raw_content:cards[index]?.querySelector('.research-raw-content input')?.checked===true}))};
-new MutationObserver(decorateResearchRawContent).observe(document.body,{childList:true,subtree:true});
 decorateResearchRawContent();
 function decorateResearchInputSources(){
   document.querySelectorAll('#research-task-list .settings-group').forEach((card,index)=>{
@@ -416,7 +411,6 @@ function decorateResearchInputSources(){
 }
 const collectResearchTasksBeforeInputSources=collectResearchTasks;
 collectResearchTasks=function(){const cards=[...document.querySelectorAll('#research-task-list .settings-group')];return collectResearchTasksBeforeInputSources().map((task,index)=>{const card=cards[index],promptToggle=card?.querySelector('.research-use-prompt'),webToggle=card?.querySelector('.research-use-web'),weatherToggle=card?.querySelector('.research-use-weather'),webSources=card?.querySelectorAll('.research-web-source-list .research-web-source'),weatherSources=card?.querySelectorAll('.research-weather-source-list .research-weather-fields');return {...task,use_prompt:promptToggle?promptToggle.checked:task.use_prompt!==false,use_web_search:webToggle?webToggle.checked:task.use_web_search!==false,web_search_sources:webSources?(webSources.length?readResearchWebSources(card,task):[]):(task.web_search_sources||[]),weather_sources:weatherSources?(weatherSources.length?readResearchWeatherSources(card):[]):(task.weather_sources||[])}})};
-new MutationObserver(decorateResearchInputSources).observe(document.body,{childList:true,subtree:true});
 decorateResearchInputSources();
 const seoulWeatherDistricts={
   '서울 전체':[37.5665,126.9780],'강남구':[37.5172,127.0473],'강동구':[37.5301,127.1238],'강북구':[37.6396,127.0257],
@@ -448,7 +442,6 @@ function decorateResearchWeatherLocation(){
     fields.querySelector('.cols')?.insertBefore(picker,fields.querySelector('.research-weather-id')?.closest('div'));
   });
 }
-new MutationObserver(decorateResearchWeatherLocation).observe(document.body,{childList:true,subtree:true});
 decorateResearchWeatherLocation();
 let weatherSourcesUi=[];
 const weatherDefault=()=>({id:'seoul',name:'서울',latitude:37.5665,longitude:126.9780,timezone:'Asia/Seoul',include_current:true,include_daily:true,forecast_days:2});
@@ -540,7 +533,6 @@ function updateResearchDataSourceVisibility(){
 document.addEventListener('change',event=>{
   if(event.target.matches?.('.research-use-prompt,.research-use-web,.research-use-weather'))updateResearchDataSourceVisibility();
 });
-new MutationObserver(organizeResearchDataSources).observe(document.body,{childList:true,subtree:true});
 organizeResearchDataSources();
 </script><style>
 .research-search-fields{margin-top:10px;padding:14px;border-left:3px solid #1565c0;background:#f4f8fc}
@@ -646,14 +638,13 @@ function decorateResearchKboSources(){
 const collectResearchTasksBeforeKbo=collectResearchTasks;
 collectResearchTasks=function(){const cards=[...document.querySelectorAll('#research-task-list .settings-group')];return collectResearchTasksBeforeKbo().map((task,index)=>{const card=cards[index],enabled=card?.querySelector('.research-use-kbo')?.checked;if(!enabled)return {...task,kbo_sources:[]};return {...task,kbo_sources:[{id:`${task.id||'kbo'}_data`,name:'KBO 공식 데이터',data_type:card.querySelector('.research-kbo-type').value,team:card.querySelector('.research-kbo-team').value||null,season:Number(card.querySelector('.research-kbo-season').value)||null,role:card.querySelector('.research-kbo-role').value,limit:Number(card.querySelector('.research-kbo-limit').value)||5,collect_before_fetch:card.querySelector('.research-kbo-collect').checked}]}})};
 document.addEventListener('change',event=>{if(event.target.matches?.('.research-use-kbo,.research-kbo-type'))decorateResearchKboSources()});
-new MutationObserver(decorateResearchKboSources).observe(document.body,{childList:true,subtree:true});
 decorateResearchKboSources();
 const showSettingsWithKbo=window.showSettings;
 window.showSettings=async function(){await showSettingsWithKbo();const groups=$('#editor .settings-groups');if(!groups||$('#kbo-api-settings'))return;sensitiveSettings.add('KBO_ADMIN_API_KEY');groups.insertAdjacentHTML('beforeend',`<section id="kbo-api-settings" class="settings-group"><div class="connection-section-heading"><div><h3>KBO OpenAPI</h3><p class="muted">KBO 공식 사이트 수집 데이터 조회용 API입니다.</p></div><button class="secondary" type="button" onclick="testKboApi()">연결 테스트</button></div><div class="cols"><div class="wide"><label>API URL</label><input class="setting-field" id="KBO_API_BASE_URL" placeholder="http://localhost:8085"></div><div class="wide"><label>관리자 API 키 <span class="muted">(선택, 수집 갱신 요청에만 필요)</span></label><div class="input-with-toggle"><input class="setting-field" id="KBO_ADMIN_API_KEY" type="password" autocomplete="off"><button class="secondary" type="button" onclick="toggleSetting('KBO_ADMIN_API_KEY',this)" aria-label="관리자 API 키 표시 또는 숨김">👁</button></div></div></div><pre id="kbo-api-test-result" class="weather-engine-result" hidden></pre></section>`);const data=await api('/api/settings');$('#KBO_API_BASE_URL').value=data.values.KBO_API_BASE_URL||'http://localhost:8085';$('#KBO_ADMIN_API_KEY').value=data.values.KBO_ADMIN_API_KEY||'';decorateSettingsCards()};
 window.testKboApi=async function(){const result=$('#kbo-api-test-result'),button=document.querySelector('button[onclick="testKboApi()"]');button.disabled=true;result.hidden=false;result.textContent='KBO OpenAPI 연결을 확인 중입니다…';try{const values={KBO_API_BASE_URL:$('#KBO_API_BASE_URL').value.trim(),KBO_ADMIN_API_KEY:$('#KBO_ADMIN_API_KEY').value};await api('/api/settings',{method:'PUT',body:JSON.stringify({values})});const data=await api('/api/settings/test/kbo',{method:'POST'});result.textContent=`✓ ${data.message}\n\n${data.preview||''}`}catch(error){result.textContent='연결 실패: '+error.message}finally{button.disabled=false}};
 function decorateResearchTestButtons(){for(const [index,card] of [...document.querySelectorAll('#research-task-list .settings-group')].entries()){if(card.dataset.testReady)continue;card.dataset.testReady='true';const header=card.querySelector(':scope > .row'),button=document.createElement('button'),result=document.createElement('pre');button.type='button';button.className='secondary research-test-button';button.textContent='이 리서치 테스트';button.onclick=()=>testResearchTask(index,card,button,result);result.className='research-test-result log-view';result.hidden=true;result.textContent='대기 중';header?.insertBefore(button,header.querySelector('.danger'));card.append(result)}}
 window.testResearchTask=async function(index,card,button,result){button.disabled=true;result.hidden=false;card.classList.remove('research-collapsed');const toggle=card.querySelector('.research-toggle');if(toggle)toggle.textContent='접기';try{result.textContent='현재 리서치 설정을 확인하는 중입니다…';const task=collectResearchTasks()[index];if(!task?.id){result.textContent='리서치 식별자를 먼저 입력하세요.';return}result.textContent='작업 설정을 저장하는 중입니다…';const saved=await saveJob();if(!saved){result.textContent='작업 저장에 실패해 테스트를 중단했습니다. 작업 화면의 오류 메시지를 확인하세요.';return}if(!current){result.textContent='저장된 작업 ID를 찾지 못했습니다. 작업 ID를 입력한 뒤 저장하세요.';return}result.textContent='이 리서치만 실행 중입니다. 최상위 프롬프트와 채널 전송은 실행하지 않습니다…';const data=await api(`/api/jobs/${encodeURIComponent(current)}/research/${encodeURIComponent(task.id)}/test`,{method:'POST'});result.textContent=data.content||'응답이 비어 있습니다.'}catch(error){result.textContent='테스트 실패: '+(error?.message||String(error))}finally{button.disabled=false}};
-new MutationObserver(decorateResearchTestButtons).observe(document.body,{childList:true,subtree:true});decorateResearchTestButtons();
+decorateResearchTestButtons();
 </script><style>.research-kbo-source{margin-top:10px;padding:14px;border-left:3px solid #19713a;background:#f4fbf6}.research-kbo-source h4{margin:0 0 12px}.research-test-result{margin:14px 0 0;min-height:140px;max-height:460px;max-width:100%;box-sizing:border-box;overflow:auto;white-space:pre-wrap;overflow-wrap:anywhere;word-break:break-word}.research-collapsed>.research-test-result{display:none}</style><script>
 const kboTypeOptions=[['latest_results','최신 종료 경기 결과'],['games','경기 일정·결과'],['rankings','팀 순위'],['player_stats','선수 시즌 기록'],['awards','시즌 MVP'],['teams','KBO 팀 목록'],['game_details','경기 상세·결승타·투수 기록'],['lineups','경기 라인업·선발투수'],['analysis','KBO 공식 프리뷰 분석'],['starting_pitcher_analysis','선발투수 분석 (공식 프리뷰)']];
 const kboTeamOptions=[['','전체'],['SS','삼성 라이온즈 (SS)'],['LG','LG 트윈스 (LG)'],['DO','두산 베어스 (DO)'],['KT','KT 위즈 (KT)'],['WO','키움 히어로즈 (WO)'],['NC','NC 다이노스 (NC)'],['HT','KIA 타이거즈 (HT)'],['LT','롯데 자이언츠 (LT)'],['HH','한화 이글스 (HH)'],['SK','SSG 랜더스 (SK)']];
@@ -665,7 +656,7 @@ function renderKboSourceCards(section,sources){const list=section.querySelector(
 function upgradeKboSourceControls(){document.querySelectorAll('#research-task-list .research-kbo-source:not([data-multi-kbo])').forEach((section,index)=>{section.dataset.multiKbo='true';const task=researchTasksUi[index]||{},sources=task.kbo_sources?.length?task.kbo_sources:[{}];section.innerHTML='<div class="row" style="justify-content:space-between"><h4>KBO OpenAPI 설정</h4><button class="secondary kbo-source-add" type="button">+ KBO 자료 추가</button></div><div class="kbo-source-list"></div>';section.querySelector('.kbo-source-add').onclick=()=>{const values=readKboSourceCards(section);values.push({});renderKboSourceCards(section,values)};renderKboSourceCards(section,sources)})}
 const collectResearchTasksBeforeMultiKbo=collectResearchTasks;
 collectResearchTasks=function(){const cards=[...document.querySelectorAll('#research-task-list .settings-group')];return collectResearchTasksBeforeMultiKbo().map((task,index)=>{const section=cards[index]?.querySelector('.research-kbo-source');if(!section||!cards[index].querySelector('.research-use-kbo')?.checked)return {...task,kbo_sources:[]};return {...task,kbo_sources:readKboSourceCards(section).map((source,sourceIndex)=>({...source,id:`${task.id||'kbo'}_${sourceIndex+1}`}))}})};
-new MutationObserver(upgradeKboSourceControls).observe(document.body,{childList:true,subtree:true});upgradeKboSourceControls();
+upgradeKboSourceControls();
 </script><style>.kbo-source-list{display:grid;gap:14px;margin-top:16px}.kbo-source-card{padding:13px;border:1px solid #bcd7c3;border-radius:8px;background:#fff}.kbo-source-card h4{margin:0}.kbo-checkbox-field label{display:flex;align-items:center;gap:8px;margin:10px 0 4px;cursor:pointer}.kbo-checkbox-field input[type=checkbox]{width:18px;height:18px;margin:0;flex:0 0 auto}</style><script>
 </script><style>.research-id-invalid{border-color:#b21f2d!important}.research-id-error{margin:5px 0 0;color:#b21f2d;font-size:12px}.research-result-count-hint{margin:4px 0 0}.research-failure-policy{margin-top:5px!important}.prompt-variable-help{margin-top:10px;color:#536477;font-size:13px}.prompt-variable-help summary{cursor:pointer;font-weight:600}.prompt-variable-help ul{margin:8px 0 0;padding-left:20px;display:grid;gap:3px}</style><script>
 async function hydrateResearchCollectorProfiles(fields, selected){
@@ -701,13 +692,21 @@ function upgradeResearchCollectorCards(){
     const toggle=card.querySelector('.research-use-job-collector'),update=()=>{outer.hidden=!toggle.checked;list.hidden=!toggle.checked;add.hidden=!toggle.checked;updateResearchDataSourceVisibility()};toggle.addEventListener('change',update);update();
   });
 }
+let researchUiRefreshTimer;
+function initializeResearchUi(){
+  decorateResearchCards();labelResearchCards();decorateResearchActivation();addResearchBulkControls();
+  decorateResearchDayChoices();decorateResearchRawContent();decorateResearchInputSources();
+  decorateResearchWeatherLocation();organizeResearchDataSources();decorateResearchKboSources();
+  upgradeKboSourceControls();upgradeResearchCollectorCards();decorateResearchTestButtons();
+  refreshResearchCardSummaries();updateResearchDataSourceVisibility();refreshResearchSourceCards();
+}
+function scheduleResearchUiInitialization(){clearTimeout(researchUiRefreshTimer);researchUiRefreshTimer=setTimeout(initializeResearchUi,0)}
 function watchResearchCollectorCards(){
   const list=document.querySelector('#research-task-list');
   if(!list||list.dataset.collectorWatcherReady)return;
   list.dataset.collectorWatcherReady='true';
-  new MutationObserver(()=>{upgradeResearchCollectorCards();refreshResearchSourceCards()}).observe(list,{childList:true,subtree:true});
-  upgradeResearchCollectorCards();
-  refreshResearchSourceCards();
+  new MutationObserver(scheduleResearchUiInitialization).observe(list,{childList:true,subtree:true});
+  scheduleResearchUiInitialization();
 }
 function upgradeWebAndWeatherSourceCards(){document.querySelectorAll('#research-task-list .settings-group').forEach(card=>{const search=card.querySelector('.research-search-fields');if(search&&!search.dataset.multiSource){search.dataset.multiSource='true';const parent=search.parentNode,outer=document.createElement('section');outer.className='wide research-search-fields research-web-sources-section';outer.innerHTML='<div class="research-source-section-heading"><h4>웹 검색 설정</h4><button type="button" class="secondary research-web-source-add">+ 웹 검색 자료 추가</button></div><div class="research-web-source-list"></div>';const list=outer.querySelector('.research-web-source-list');parent.replaceChild(outer,search);search.className='research-web-source';search.querySelector('h4')?.remove();list.append(search);outer.querySelector('.research-web-source-add').onclick=()=>{const clone=search.cloneNode(true);clone.querySelectorAll('input').forEach(input=>{if(input.type==='checkbox')input.checked=false;else input.value=''});clone.querySelectorAll('select').forEach(select=>select.selectedIndex=0);list.append(clone);clone.scrollIntoView({behavior:'smooth',block:'nearest'})}};const weather=card.querySelector('.research-weather-fields');if(weather&&!weather.closest('.research-weather-sources-section')){const outer=document.createElement('section');outer.className='research-weather-sources-section';outer.innerHTML='<div class="research-source-section-heading"><h4>날씨 API 설정</h4><button type="button" class="secondary research-weather-source-add">+ 날씨 자료 추가</button></div><div class="research-weather-source-list"></div>';weather.replaceWith(outer);outer.querySelector('.research-weather-source-list').append(weather);outer.querySelector('.research-weather-source-add').onclick=()=>{const clone=weather.cloneNode(true);clone.dataset.locationPickerReady='';clone.querySelector('.weather-location-picker')?.remove();clone.querySelectorAll('input').forEach(input=>{if(input.type==='checkbox')input.checked=input.defaultChecked;else input.value=''});clone.querySelectorAll('select').forEach(select=>select.selectedIndex=0);outer.querySelector('.research-weather-source-list').append(clone);decorateResearchWeatherLocation();clone.scrollIntoView({behavior:'smooth',block:'nearest'})}}})}
 function readResearchWebSources(card,task){return [...card.querySelectorAll('.research-web-source-list .research-web-source')].map((source,index)=>({id:`${task.id||'search'}_search_${index+1}`,name:`웹 검색 ${index+1}`,query:source.querySelector('.research-query')?.value.trim()||null,time_range:source.querySelector('.research-time')?.value||'day',topic:source.querySelector('.research-topic')?.value||'news',search_depth:source.querySelector('.research-depth')?.value||'basic',max_results:Number(source.querySelector('.research-max')?.value)||5,include_domains:(source.querySelector('.research-include')?.value||'').split(',').map(v=>v.trim()).filter(Boolean),exclude_domains:(source.querySelector('.research-exclude')?.value||'').split(',').map(v=>v.trim()).filter(Boolean),include_raw_content:source.querySelector('.research-raw-content input')?.checked===true}))}
