@@ -44,11 +44,13 @@ class JobCollectorClient:
     def fetch(self, source: JobCollectorSource) -> str:
         """Fetch only already-collected postings and format them for a research task."""
         employment_aliases = {
-            "FULL_TIME": "정규직",
-            "CONTRACT": "계약직",
-            "PART_TIME": "시간제",
-            "INTERN": "인턴",
-            "FREELANCE": "프리랜서",
+            "정규직": "FULL_TIME",
+            "계약직": "CONTRACT",
+            "시간제": "PART_TIME",
+            "인턴": "INTERN",
+            "파견직": "DISPATCH",
+            "프리랜서": "FREELANCE",
+            "기타": "OTHER",
         }
         params: dict[str, str | int] = {"limit": source.limit, "sort": source.sort}
         scalar_filters = {
@@ -65,7 +67,7 @@ class JobCollectorClient:
             "categories": source.categories,
             "skills": source.skills,
             "employment_types": tuple(
-                employment_aliases.get(value.upper(), value) for value in source.employment_types
+                employment_aliases.get(value, value.upper()) for value in source.employment_types
             ),
             "experience_types": source.experience_types,
         }
@@ -76,7 +78,14 @@ class JobCollectorClient:
         response = self._get(
             "/api/v1/jobs", params=params, headers=headers, timeout=self.timeout
         )
-        response.raise_for_status()
+        try:
+            response.raise_for_status()
+        except httpx.HTTPStatusError as exc:
+            body = response.text.strip().replace("\n", " ")[:500]
+            raise RuntimeError(
+                f"Job Collector API returned HTTP {response.status_code} for {response.url}"
+                + (f": {body}" if body else "")
+            ) from exc
         payload = response.json()
         if not isinstance(payload, dict) or not isinstance(payload.get("items"), list):
             raise ValueError("Job Collector jobs response must contain an items list")

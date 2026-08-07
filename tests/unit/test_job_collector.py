@@ -10,7 +10,7 @@ def test_job_collector_fetches_saved_postings_with_filters() -> None:
         assert request.url.params["profile_id"] == "education"
         assert request.url.params["keyword"] == "콘텐츠 개발"
         assert request.url.params["statuses"] == "ACTIVE"
-        assert request.url.params["employment_types"] == "정규직"
+        assert request.url.params["employment_types"] == "FULL_TIME"
         assert request.headers["authorization"] == "Bearer admin-key"
         return httpx.Response(200, json={"items": [{"title": "교육 콘텐츠 개발자"}]})
 
@@ -31,3 +31,21 @@ def test_job_collector_fetches_saved_postings_with_filters() -> None:
 
     assert "교육 공고" in result
     assert "교육 콘텐츠 개발자" in result
+
+
+def test_job_collector_normalizes_legacy_korean_employment_values() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        assert request.url.params["employment_types"] == "FULL_TIME,CONTRACT"
+        return httpx.Response(200, json={"items": []})
+
+    client = JobCollectorClient(
+        "http://collector.test",
+        client=httpx.Client(transport=httpx.MockTransport(handler)),
+    )
+    client.fetch(
+        JobCollectorSource(
+            "legacy_jobs",
+            "기존 공고",
+            employment_types=("정규직", "계약직"),
+        )
+    )
