@@ -4,8 +4,9 @@ from datetime import timedelta
 from pathlib import Path
 from threading import Lock
 from typing import Any, Literal
+from uuid import uuid4
 
-from fastapi import FastAPI, HTTPException, Query
+from fastapi import BackgroundTasks, FastAPI, HTTPException, Query
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 
@@ -71,6 +72,27 @@ def create_app(container: ApplicationContainer) -> FastAPI:
         container.settings.prompts_directory,
         container.settings.database_path.parent / "management.env",
     )
+    background_runs: dict[str, dict[str, str | None]] = {}
+    background_runs_lock = Lock()
+
+    def _run_job_in_background(
+        request_id: str,
+        command: RunJobCommand,
+    ) -> None:
+        with background_runs_lock:
+            background_runs[request_id]["status"] = "RUNNING"
+        try:
+            result = container.run_job.execute(command)
+            payload = {
+                "status": result.status,
+                "execution_id": result.execution_id,
+                "message": result.message,
+            }
+        except Exception as error:
+            logger.exception("event=job_run_background_failed job_id=%s", command.job_id)
+            payload = {"status": "FAILED", "execution_id": None, "message": str(error)}
+        with background_runs_lock:
+            background_runs[request_id] = payload
 
     def reload_runtime() -> int:
         """Rebuild outbound clients while preserving the running scheduler instance."""
@@ -452,6 +474,40 @@ def create_app(container: ApplicationContainer) -> FastAPI:
             "execution_id": result.execution_id,
             "message": result.message,
         }
+
+    @app.post("/api/jobs/{job_id}/run-async")
+    def run_job_async(
+        job_id: str,
+        background_tasks: BackgroundTasks,
+        dry_run: bool = False,
+        skip_openwebui: bool = False,
+        allow_disabled: bool = False,
+    ) -> dict[str, str]:
+        if container.jobs.find_by_id(job_id) is None:
+            raise HTTPException(404, "Job not found")
+        request_id = str(uuid4())
+        command = RunJobCommand(
+            job_id,
+            dry_run=dry_run,
+            skip_openwebui=skip_openwebui,
+            allow_disabled=allow_disabled,
+        )
+        with background_runs_lock:
+            background_runs[request_id] = {
+                "status": "QUEUED",
+                "execution_id": None,
+                "message": None,
+            }
+        background_tasks.add_task(_run_job_in_background, request_id, command)
+        return {"request_id": request_id, "status": "QUEUED"}
+
+    @app.get("/api/job-runs/{request_id}")
+    def job_run_status(request_id: str) -> dict[str, str | None]:
+        with background_runs_lock:
+            result = background_runs.get(request_id)
+            if result is None:
+                raise HTTPException(404, "Background run not found")
+            return dict(result)
 
     @app.post("/api/jobs/{job_id}/unlock")
     def unlock_job(job_id: str) -> dict[str, object]:

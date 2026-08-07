@@ -470,14 +470,29 @@ function addJobUnlockButton(){
   testButton.insertAdjacentElement('afterend',button);
 }
 const testJobPromptBeforeSkippedMessage=testJobPrompt;
+const waitForBackgroundJobRun=async(requestId,result)=>{
+  const startedAt=Date.now(),maxWaitMs=30*60*1000;
+  while(Date.now()-startedAt<maxWaitMs){
+    const data=await api(`/api/job-runs/${encodeURIComponent(requestId)}`);
+    if(data.status==='QUEUED'||data.status==='RUNNING'){
+      const elapsed=Math.floor((Date.now()-startedAt)/1000);
+      result.textContent=`리서치·최종 요약·실제 채널 전송을 실행 중입니다… (${elapsed}초 경과)\n\n이 화면은 짧게 상태만 확인하므로 프록시 시간 제한에 영향을 받지 않습니다.`;
+      await new Promise(resolve=>setTimeout(resolve,1500));
+      continue;
+    }
+    return data;
+  }
+  return {status:'RUNNING',message:'작업이 백그라운드에서 계속 실행 중입니다. 실행 이력에서 결과를 확인하세요.'};
+};
 window.testJobPrompt=async function(){
   if(jobResearchTestInProgress)return;
   const result=$('#job-test-result'),button=document.querySelector('button[onclick="testJobPrompt()"]');
   jobResearchTestInProgress=true;if(button){button.disabled=true;button.textContent='저장 및 테스트 실행 중…'}
-  result.textContent='현재 설정을 저장한 뒤 리서치·최종 요약·실제 채널 전송을 실행 중입니다…';
+  result.textContent='현재 설정을 저장한 뒤 백그라운드에서 리서치·최종 요약·실제 채널 전송을 시작합니다…';
   try{
     const saved=await saveJob();if(!saved){result.textContent='저장에 실패해 테스트를 중단했습니다.';return}
-    const data=await api(`/api/jobs/${current}/run?dry_run=false&allow_disabled=true`,{method:'POST'});
+    const queued=await api(`/api/jobs/${current}/run-async?dry_run=false&allow_disabled=true`,{method:'POST'});
+    const data=await waitForBackgroundJobRun(queued.request_id,result);
     if(data.status==='SKIPPED'){
       result.textContent=`테스트 미실행: ${data.message||'작업이 이미 실행 중입니다.'}\n\n실제 실행이 끝날 때까지 기다리거나, 중단된 이전 실행이라면 “실행 잠금 해제” 후 다시 시도하세요.`;
       return;
@@ -485,6 +500,10 @@ window.testJobPrompt=async function(){
     if(data.status==='FAILED'){
       const hint=/research.*has no attribute/i.test(data.message||'')?'\n\n리서치 식별자가 daily라면 최상위 프롬프트에서 {{ research.daily }}를 쓰거나, 모든 리서치를 합치려면 {{ research_context }}를 사용하세요.':'';
       result.textContent=`테스트 전송 실패: ${data.message||'작업 실행에 실패했습니다.'}${hint}`;
+      return;
+    }
+    if(data.status==='RUNNING'){
+      result.textContent=`테스트 전송이 아직 실행 중입니다.\n\n${data.message||'실행 이력에서 최종 결과를 확인하세요.'}`;
       return;
     }
     result.textContent=`테스트 전송 완료: ${data.status}${data.message?' · '+data.message:''}\n\n하위 리서치와 최종 종합 결과가 선택한 채널로 전송되었습니다.`;
