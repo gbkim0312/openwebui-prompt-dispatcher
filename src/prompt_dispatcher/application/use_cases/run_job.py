@@ -10,6 +10,7 @@ from prompt_dispatcher.application.dto.results import RunJobResult
 from prompt_dispatcher.application.ports import (
     ClockPort,
     ExecutionRepositoryPort,
+    JobCollectorPort,
     JobRepositoryPort,
     KboPort,
     OpenWebUiPort,
@@ -52,6 +53,7 @@ class RunJob:
         retention_days: int = 30,
         weather: WeatherPort | None = None,
         kbo: KboPort | None = None,
+        job_collector: JobCollectorPort | None = None,
     ) -> None:
         self._jobs, self._prompts, self._renderer = job_repository, prompt_loader, template_renderer
         self._openwebui, self._executions, self._channels, self._clock = (
@@ -65,6 +67,7 @@ class RunJob:
         self._retention_days = retention_days
         self._weather = weather
         self._kbo = kbo
+        self._job_collector = job_collector
 
     def execute(self, command: RunJobCommand) -> RunJobResult:
         job = self._jobs.find_by_id(command.job_id)
@@ -166,6 +169,21 @@ class RunJob:
                             source_context.append(
                                 "--- KBO 공식 데이터 ---\n"
                                 + self._kbo.fetch(kbo_source, scheduled.date())
+                            )
+                    if task.job_collector_sources:
+                        if self._job_collector is None:
+                            raise ValueError("Job Collector OpenAPI is not configured")
+                        for collector_source in task.job_collector_sources:
+                            logger.info(
+                                "event=job_collector_source_started job_id=%s execution_id=%s task_id=%s source_id=%s",
+                                job.id,
+                                execution.id,
+                                task.id,
+                                collector_source.id,
+                            )
+                            source_context.append(
+                                "--- 채용 공고 데이터 ---\n"
+                                + self._job_collector.fetch(collector_source)
                             )
                     if weather_context:
                         source_context.append(
@@ -437,6 +455,13 @@ class RunJob:
             source_context.append(
                 "--- 구조화 날씨 데이터 ---\n"
                 + "\n\n".join(self._weather.fetch(source) for source in task.weather_sources)
+            )
+        if task.job_collector_sources:
+            if self._job_collector is None:
+                raise ValueError("Job Collector OpenAPI is not configured")
+            source_context.extend(
+                "--- 채용 공고 데이터 ---\n" + self._job_collector.fetch(source)
+                for source in task.job_collector_sources
             )
         if task.use_web_search:
             if self._tavily is None:

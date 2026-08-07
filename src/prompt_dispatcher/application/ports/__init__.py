@@ -1,6 +1,7 @@
 from .clock import ClockPort
 from .execution_repository import ExecutionRepositoryPort
 from .job_repository import JobRepositoryPort
+from .job_collector import JobCollectorPort
 from .kbo import KboPort
 from .message_channel import MessageChannelPort
 from .model_catalog import ModelCatalogPort
@@ -14,6 +15,7 @@ __all__ = [
     "ClockPort",
     "ExecutionRepositoryPort",
     "JobRepositoryPort",
+    "JobCollectorPort",
     "KboPort",
     "MessageChannelPort",
     "ModelCatalogPort",

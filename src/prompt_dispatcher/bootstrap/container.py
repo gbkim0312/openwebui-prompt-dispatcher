@@ -9,6 +9,7 @@ from prompt_dispatcher.adapters.outbound.channels.nextcloud_talk import Nextclou
 from prompt_dispatcher.adapters.outbound.channels.smtp_email import SmtpEmailChannel
 from prompt_dispatcher.adapters.outbound.channels.telegram import TelegramChannel
 from prompt_dispatcher.adapters.outbound.kbo.openapi import KboOpenApi
+from prompt_dispatcher.adapters.outbound.job_collector.client import JobCollectorClient
 from prompt_dispatcher.adapters.outbound.openwebui.cached_model_catalog import CachedModelCatalog
 from prompt_dispatcher.adapters.outbound.openwebui.http_adapter import HttpOpenWebUiAdapter
 from prompt_dispatcher.adapters.outbound.prompts.file_prompt_loader import FilePromptLoader
@@ -158,6 +159,9 @@ def build_container(settings: Settings | None = None) -> ApplicationContainer:
         else OpenMeteoWeather()
     )
     kbo = KboOpenApi(settings.kbo_api_base_url, settings.kbo_admin_api_key)
+    job_collector = JobCollectorClient(
+        settings.job_collector_base_url, settings.job_collector_admin_api_key
+    )
     run = RunJob(
         jobs,
         FilePromptLoader(settings.prompts_directory),
@@ -171,6 +175,7 @@ def build_container(settings: Settings | None = None) -> ApplicationContainer:
         settings.execution_retention_days,
         weather,
         kbo,
+        job_collector,
     )
     send_prompt = SendPrompt(openwebui, resolver, clock, tavily)
     return ApplicationContainer(

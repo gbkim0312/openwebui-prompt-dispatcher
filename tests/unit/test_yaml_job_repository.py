@@ -177,6 +177,48 @@ def test_weather_only_research_task_is_loaded(tmp_path) -> None:
     assert task.weather_sources[0].include_weekly is True
 
 
+def test_job_collector_only_research_task_is_loaded(tmp_path) -> None:
+    (tmp_path / "jobs.job.yaml").write_text(
+        '''\
+version: 1
+id: jobs
+schedule:
+  cron: "0 18 * * mon"
+  timezone: Asia/Seoul
+openwebui:
+  model: test-model
+prompt:
+  text: hello
+delivery:
+  channels:
+    - type: fake
+      target: one
+research:
+  tasks:
+    - id: education_jobs
+      name: 교육 콘텐츠 채용
+      use_web_search: false
+      use_prompt: false
+      job_collector_sources:
+        - id: education_postings
+          name: 교육 콘텐츠 공고
+          profile_id: education
+          keyword: 콘텐츠 개발
+          statuses: [ACTIVE]
+          limit: 10
+''',
+        encoding="utf-8",
+    )
+
+    repository = YamlJobRepository(tmp_path)
+
+    assert repository.errors == []
+    task = repository.find_all()[0].research_tasks[0]
+    assert task.use_web_search is False
+    assert task.job_collector_sources[0].profile_id == "education"
+    assert task.job_collector_sources[0].keyword == "콘텐츠 개발"
+
+
 def test_duplicate_research_task_ids_do_not_load_job(tmp_path) -> None:
     (tmp_path / "duplicate.job.yaml").write_text(
         """\

@@ -71,6 +71,7 @@ class ResearchTask:
     use_web_search: bool = True
     weather_sources: "tuple[WeatherSource, ...]" = ()
     kbo_sources: "tuple[KboSource, ...]" = ()
+    job_collector_sources: "tuple[JobCollectorSource, ...]" = ()
 
 
 @dataclass(frozen=True)
@@ -103,6 +104,25 @@ class KboSource:
     league_type: str | None = None
     reference_date: str | None = None
     use_today: bool = False
+
+
+@dataclass(frozen=True)
+class JobCollectorSource:
+    id: str
+    name: str
+    profile_id: str | None = None
+    keyword: str | None = None
+    sources: tuple[str, ...] = ()
+    statuses: tuple[str, ...] = ("ACTIVE",)
+    categories: tuple[str, ...] = ()
+    skills: tuple[str, ...] = ()
+    region: str | None = None
+    employment_types: tuple[str, ...] = ()
+    experience_types: tuple[str, ...] = ()
+    min_experience: int | None = None
+    max_experience: int | None = None
+    limit: int = 20
+    sort: str = "updated_at:desc"
 
 
 @dataclass(frozen=True)

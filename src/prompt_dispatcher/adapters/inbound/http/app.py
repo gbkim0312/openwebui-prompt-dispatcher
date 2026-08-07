@@ -330,6 +330,26 @@ def create_app(container: ApplicationContainer) -> FastAPI:
                                 }
                                 for source in task.kbo_sources
                             ],
+                            "job_collector_sources": [
+                                {
+                                    "id": source.id,
+                                    "name": source.name,
+                                    "profile_id": source.profile_id,
+                                    "keyword": source.keyword,
+                                    "sources": list(source.sources),
+                                    "statuses": list(source.statuses),
+                                    "categories": list(source.categories),
+                                    "skills": list(source.skills),
+                                    "region": source.region,
+                                    "employment_types": list(source.employment_types),
+                                    "experience_types": list(source.experience_types),
+                                    "min_experience": source.min_experience,
+                                    "max_experience": source.max_experience,
+                                    "limit": source.limit,
+                                    "sort": source.sort,
+                                }
+                                for source in task.job_collector_sources
+                            ],
                         }
                         for task in job.research_tasks
                     ],

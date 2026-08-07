@@ -12,6 +12,7 @@ from prompt_dispatcher.domain.job import (
     ChannelDestination,
     ExecutionPolicy,
     Job,
+    JobCollectorSource,
     KboSource,
     OpenWebUiOptions,
     PromptDefinition,
@@ -238,11 +239,15 @@ class YamlJobRepository:
         kbo_sources = tuple(
             YamlJobRepository._map_kbo_source(item) for item in raw.get("kbo_sources", [])
         )
+        job_collector_sources = tuple(
+            YamlJobRepository._map_job_collector_source(item)
+            for item in raw.get("job_collector_sources", [])
+        )
         if use_web_search and not query:
             raise JobValidationError("research task query is required when web search is enabled")
-        if not use_web_search and not weather_sources and not kbo_sources:
+        if not use_web_search and not weather_sources and not kbo_sources and not job_collector_sources:
             raise JobValidationError(
-                "research task must enable web search or add a weather or KBO source"
+                "research task must enable web search or add a weather, KBO, or Job Collector source"
             )
         time_range = str(raw.get("time_range", "day"))
         topic = str(raw.get("topic", "news"))
@@ -283,6 +288,55 @@ class YamlJobRepository:
             use_web_search,
             weather_sources,
             kbo_sources,
+            job_collector_sources,
+        )
+
+    @staticmethod
+    def _map_job_collector_source(raw: object) -> JobCollectorSource:
+        if not isinstance(raw, dict):
+            raise JobValidationError("job_collector_sources must contain objects")
+        source_id = str(raw.get("id", ""))
+        if not source_id or not source_id.replace("_", "").replace("-", "").isalnum():
+            raise JobValidationError(
+                "Job Collector source id may use letters, numbers, hyphens, and underscores only"
+            )
+        limit = int(raw.get("limit", 20))
+        if not 1 <= limit <= 100:
+            raise JobValidationError("Job Collector source limit must be between 1 and 100")
+        min_experience = raw.get("min_experience")
+        max_experience = raw.get("max_experience")
+        try:
+            minimum = int(min_experience) if min_experience is not None else None
+            maximum = int(max_experience) if max_experience is not None else None
+        except (TypeError, ValueError) as exc:
+            raise JobValidationError("Job Collector experience values must be integers") from exc
+        if (minimum is not None and minimum < 0) or (maximum is not None and maximum < 0):
+            raise JobValidationError("Job Collector experience values cannot be negative")
+        if minimum is not None and maximum is not None and minimum > maximum:
+            raise JobValidationError("Job Collector min_experience cannot exceed max_experience")
+        statuses = tuple(str(value).upper() for value in raw.get("statuses", ["ACTIVE"]))
+        valid_statuses = {"ACTIVE", "CLOSED", "DELETED", "UNKNOWN"}
+        if any(value not in valid_statuses for value in statuses):
+            raise JobValidationError("Job Collector statuses are invalid")
+        experience_types = tuple(str(value).upper() for value in raw.get("experience_types", []))
+        if any(value not in {"NEWBIE", "EXPERIENCED", "ANY", "UNKNOWN"} for value in experience_types):
+            raise JobValidationError("Job Collector experience_types are invalid")
+        return JobCollectorSource(
+            source_id,
+            str(raw.get("name") or source_id),
+            str(raw["profile_id"]) if raw.get("profile_id") else None,
+            str(raw["keyword"]) if raw.get("keyword") else None,
+            tuple(str(value) for value in raw.get("sources", [])),
+            statuses,
+            tuple(str(value) for value in raw.get("categories", [])),
+            tuple(str(value) for value in raw.get("skills", [])),
+            str(raw["region"]) if raw.get("region") else None,
+            tuple(str(value) for value in raw.get("employment_types", [])),
+            experience_types,
+            minimum,
+            maximum,
+            limit,
+            str(raw.get("sort", "updated_at:desc")),
         )
 
     @staticmethod
