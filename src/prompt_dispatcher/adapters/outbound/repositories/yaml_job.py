@@ -13,6 +13,7 @@ from prompt_dispatcher.domain.job import (
     ExecutionPolicy,
     Job,
     JobCollectorSource,
+    WebSearchSource,
     KboSource,
     OpenWebUiOptions,
     PromptDefinition,
@@ -243,9 +244,13 @@ class YamlJobRepository:
             YamlJobRepository._map_job_collector_source(item)
             for item in raw.get("job_collector_sources", [])
         )
-        if use_web_search and not query:
+        web_search_sources = tuple(
+            YamlJobRepository._map_web_search_source(item)
+            for item in raw.get("web_search_sources", [])
+        )
+        if use_web_search and not query and not web_search_sources:
             raise JobValidationError("research task query is required when web search is enabled")
-        if not use_web_search and not weather_sources and not kbo_sources and not job_collector_sources:
+        if not use_web_search and not web_search_sources and not weather_sources and not kbo_sources and not job_collector_sources:
             raise JobValidationError(
                 "research task must enable web search or add a weather, KBO, or Job Collector source"
             )
@@ -289,6 +294,39 @@ class YamlJobRepository:
             weather_sources,
             kbo_sources,
             job_collector_sources,
+            web_search_sources,
+        )
+
+    @staticmethod
+    def _map_web_search_source(raw: object) -> WebSearchSource:
+        if not isinstance(raw, dict):
+            raise JobValidationError("web_search_sources must contain objects")
+        source_id = str(raw.get("id", ""))
+        if not source_id or not source_id.replace("_", "").replace("-", "").isalnum():
+            raise JobValidationError("Web search source id is invalid")
+        time_range = str(raw.get("time_range", "day"))
+        topic = str(raw.get("topic", "news"))
+        depth = str(raw.get("search_depth", "basic"))
+        if time_range not in {"day", "week", "month", "year"}:
+            raise JobValidationError("web search source time_range is invalid")
+        if topic not in {"general", "news", "finance"}:
+            raise JobValidationError("web search source topic is invalid")
+        if depth not in {"basic", "fast", "advanced", "ultra-fast"}:
+            raise JobValidationError("web search source search_depth is invalid")
+        max_results = int(raw.get("max_results", 5))
+        if not 1 <= max_results <= 20:
+            raise JobValidationError("web search source max_results must be between 1 and 20")
+        return WebSearchSource(
+            source_id,
+            str(raw.get("name") or source_id),
+            str(raw["query"]) if raw.get("query") else None,
+            time_range,
+            topic,
+            depth,
+            max_results,
+            tuple(str(value) for value in raw.get("include_domains", [])),
+            tuple(str(value) for value in raw.get("exclude_domains", [])),
+            bool(raw.get("include_raw_content", False)),
         )
 
     @staticmethod

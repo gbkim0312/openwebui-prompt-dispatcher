@@ -33,9 +33,31 @@ from prompt_dispatcher.domain.execution import (
     ExecutionResult,
     determine_execution_status,
 )
-from prompt_dispatcher.domain.job import Job, OpenWebUiRequest, OpenWebUiResponse
+from prompt_dispatcher.domain.job import Job, OpenWebUiRequest, OpenWebUiResponse, WebSearchSource
 
 logger = logging.getLogger(__name__)
+
+
+def _web_search_sources(task) -> tuple[WebSearchSource, ...]:
+    """Return card-based sources, with a compatibility fallback for old YAML."""
+    if task.web_search_sources:
+        return task.web_search_sources
+    if not task.use_web_search:
+        return ()
+    return (
+        WebSearchSource(
+            id=f"{task.id}_search",
+            name=task.name,
+            query=task.query or None,
+            time_range=task.time_range,
+            topic=task.topic,
+            search_depth=task.search_depth,
+            max_results=task.max_results,
+            include_domains=task.include_domains,
+            exclude_domains=task.exclude_domains,
+            include_raw_content=task.include_raw_content,
+        ),
+    )
 
 
 class RunJob:
@@ -189,19 +211,19 @@ class RunJob:
                         source_context.append(
                             "--- 구조화 날씨 데이터 ---\n" + "\n\n".join(weather_context)
                         )
-                    if task.use_web_search:
-                        search_query = self._renderer.render(task.query, variables)
+                    for web_source in _web_search_sources(task):
+                        search_query = self._renderer.render(web_source.query or task.query, variables)
                         if self._tavily is None:
                             raise ValueError("TAVILY_API_KEY is required for Web Search with Tavily")
                         results = self._tavily.search(
                             search_query,
-                            task.time_range,
-                            task.topic,
-                            task.search_depth,
-                            task.max_results,
-                            task.include_domains,
-                            task.exclude_domains,
-                            task.include_raw_content,
+                            web_source.time_range,
+                            web_source.topic,
+                            web_source.search_depth,
+                            web_source.max_results,
+                            web_source.include_domains,
+                            web_source.exclude_domains,
+                            web_source.include_raw_content,
                         )
                         source_context.append("--- Tavily 검색 결과 ---\n" + format_tavily_results(results))
                     if task.use_prompt:
@@ -463,19 +485,19 @@ class RunJob:
                 "--- 채용 공고 데이터 ---\n" + self._job_collector.fetch(source)
                 for source in task.job_collector_sources
             )
-        if task.use_web_search:
+        for web_source in _web_search_sources(task):
             if self._tavily is None:
                 raise ValueError("TAVILY_API_KEY is required for Web Search with Tavily")
-            search_query = self._renderer.render(task.query, variables)
+            search_query = self._renderer.render(web_source.query or task.query, variables)
             results = self._tavily.search(
                 search_query,
-                task.time_range,
-                task.topic,
-                task.search_depth,
-                task.max_results,
-                task.include_domains,
-                task.exclude_domains,
-                task.include_raw_content,
+                web_source.time_range,
+                web_source.topic,
+                web_source.search_depth,
+                web_source.max_results,
+                web_source.include_domains,
+                web_source.exclude_domains,
+                web_source.include_raw_content,
             )
             source_context.append("--- Tavily 검색 결과 ---\n" + format_tavily_results(results))
         if not task.use_prompt:

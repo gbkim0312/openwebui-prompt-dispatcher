@@ -350,6 +350,21 @@ def create_app(container: ApplicationContainer) -> FastAPI:
                                 }
                                 for source in task.job_collector_sources
                             ],
+                            "web_search_sources": [
+                                {
+                                    "id": source.id,
+                                    "name": source.name,
+                                    "query": source.query,
+                                    "time_range": source.time_range,
+                                    "topic": source.topic,
+                                    "search_depth": source.search_depth,
+                                    "max_results": source.max_results,
+                                    "include_domains": list(source.include_domains),
+                                    "exclude_domains": list(source.exclude_domains),
+                                    "include_raw_content": source.include_raw_content,
+                                }
+                                for source in task.web_search_sources
+                            ],
                         }
                         for task in job.research_tasks
                     ],

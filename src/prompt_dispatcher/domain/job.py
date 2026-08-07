@@ -72,6 +72,21 @@ class ResearchTask:
     weather_sources: "tuple[WeatherSource, ...]" = ()
     kbo_sources: "tuple[KboSource, ...]" = ()
     job_collector_sources: "tuple[JobCollectorSource, ...]" = ()
+    web_search_sources: "tuple[WebSearchSource, ...]" = ()
+
+
+@dataclass(frozen=True)
+class WebSearchSource:
+    id: str
+    name: str
+    query: str | None = None
+    time_range: str = "day"
+    topic: str = "news"
+    search_depth: str = "basic"
+    max_results: int = 5
+    include_domains: tuple[str, ...] = ()
+    exclude_domains: tuple[str, ...] = ()
+    include_raw_content: bool = False
 
 
 @dataclass(frozen=True)
