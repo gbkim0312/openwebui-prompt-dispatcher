@@ -89,7 +89,7 @@ class KmaWeather:
         except Exception as error:
             lines.append(f"단기 예보: 조회 실패 ({type(error).__name__})")
         try:
-            lines.extend(self._alerts(now))
+            lines.extend(self._alerts(now, source))
         except Exception as error:
             lines.append(f"기상특보: 조회 실패 ({type(error).__name__})")
         try:
@@ -204,24 +204,67 @@ class KmaWeather:
             )
         return lines
 
-    def _alerts(self, now: datetime) -> list[str]:
+    def _alerts(self, now: datetime, source: WeatherSource) -> list[str]:
+        """Return only warnings that can be attributed to the requested place.
+
+        ``getWthrWrnList`` is a *bulletin list*, not a current-warning map.  In
+        particular, a bulletin title can omit its affected area.  Treating every
+        recent national bulletin as a warning for Seoul produced false alerts.
+        Keep an unambiguous title only; an ambiguous bulletin must not influence
+        the LLM's local weather briefing.
+        """
         items = self._request_endpoint(
             self._warning_url,
             {
-                "stnId": 108,
+                "stnId": self._warning_station_id(source),
                 "fromTmFc": (now - timedelta(days=1)).strftime("%Y%m%d"),
                 "toTmFc": now.strftime("%Y%m%d"),
             },
             service_key=self._alert_service_key,
         )
         if not items:
-            return ["기상특보 (서울 관할): 최근 24시간 발표된 특보 없음"]
+            return [f"기상특보 ({source.name}): 최근 24시간 발표 목록 없음"]
+        aliases = self._warning_region_aliases(source)
+        applicable = [
+            item
+            for item in items
+            if any(alias in str(item.get("title", "")) for alias in aliases)
+        ]
+        if not applicable:
+            return [
+                f"기상특보 ({source.name}): 최근 발표 목록에는 지역명이 명시된 {source.name} 특보가 없음. "
+                "지역명이 없는 특보 제목은 해당 지역에 적용되는 것으로 사용하지 마세요."
+            ]
         return [
-            "기상특보 (서울 관할): " + "; ".join(
+            f"기상특보 ({source.name}, 지역명 확인됨): " + "; ".join(
                 f"{item.get('title', '제목 없음')} ({item.get('tmFc', '발표시각 미제공')})"
-                for item in items[:5]
+                for item in applicable[:5]
             )
         ]
+
+    @staticmethod
+    def _warning_region_aliases(source: WeatherSource) -> tuple[str, ...]:
+        """Known spellings that safely identify a warning's affected region."""
+        name = source.name.strip()
+        aliases = {name}
+        for suffix in ("특별시", "광역시", "특별자치시", "특별자치도", "도", "시", "군", "구"):
+            if name.endswith(suffix):
+                aliases.add(name[: -len(suffix)])
+        if "서울" in name:
+            aliases.update({"서울", "서울특별시"})
+        return tuple(alias for alias in aliases if len(alias) >= 2)
+
+    @staticmethod
+    def _warning_station_id(source: WeatherSource) -> int:
+        """Use the capital-area warning office for Seoul and its vicinity.
+
+        Station 108 is the national bulletin feed; 109 is the Seoul/Incheon/
+        Gyeonggi office.  This narrows the candidate bulletin set, while the
+        title check above remains the actual guard against false attribution.
+        """
+        if "서울" in source.name or (37.0 <= source.latitude <= 38.1 and 126.0 <= source.longitude <= 127.8):
+            return 109
+        return 108
 
     def _weekly(self, now: datetime) -> list[str]:
         base = self._mid_base(now).strftime("%Y%m%d%H%M")

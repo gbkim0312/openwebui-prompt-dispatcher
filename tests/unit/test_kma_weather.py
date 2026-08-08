@@ -71,6 +71,8 @@ def test_kma_weather_formats_current_and_daily_forecast() -> None:
 
 
 def test_kma_weather_can_include_alerts_and_weekly_forecast() -> None:
+    warning_requests: list[httpx.Request] = []
+
     def response(items: list[dict[str, object]]) -> httpx.Response:
         return httpx.Response(
             200,
@@ -79,6 +81,7 @@ def test_kma_weather_can_include_alerts_and_weekly_forecast() -> None:
 
     def handler(request: httpx.Request) -> httpx.Response:
         if request.url.path.endswith("getWthrWrnList"):
+            warning_requests.append(request)
             return response([{"title": "서울특별시 호우주의보", "tmFc": "202608040700"}])
         if request.url.path.endswith("getMidLandFcst"):
             return response([{"wf3Am": "맑음", "rnSt3Am": 10}])
@@ -105,6 +108,37 @@ def test_kma_weather_can_include_alerts_and_weekly_forecast() -> None:
         )
     )
 
-    assert "기상특보 (서울 관할): 서울특별시 호우주의보 (202608040700)" in report
+    assert warning_requests[0].url.params["stnId"] == "109"
+    assert "기상특보 (서울, 지역명 확인됨): 서울특별시 호우주의보 (202608040700)" in report
     assert "주간 예보 (서울, 202608040600 발표):" in report
     assert "| 2026-08-07 (3일 후) | 맑음 / - | 10% / -% | 24°C | 33°C |" in report
+
+
+def test_kma_weather_excludes_warning_titles_without_the_requested_region() -> None:
+    def response(items: list[dict[str, object]]) -> httpx.Response:
+        return httpx.Response(
+            200,
+            json={"response": {"header": {"resultCode": "00"}, "body": {"items": {"item": items}}}},
+        )
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path.endswith("getWthrWrnList"):
+            return response(
+                [
+                    {"title": "[특보] 제08-34호 : 호우경보 변경 (*)", "tmFc": "202608080905"},
+                    {"title": "경기도 호우주의보 발표", "tmFc": "202608080900"},
+                ]
+            )
+        return response([])
+
+    weather = KmaWeather(
+        "service-key",
+        httpx.Client(transport=httpx.MockTransport(handler)),
+        now=lambda: datetime(2026, 8, 8, 9, 10, tzinfo=ZoneInfo("Asia/Seoul")),
+    )
+
+    report = weather.fetch(WeatherSource("seoul", "서울", 37.5665, 126.9780))
+
+    assert "서울, 지역명 확인됨" not in report
+    assert "호우경보 변경" not in report
+    assert "지역명이 명시된 서울 특보가 없음" in report
