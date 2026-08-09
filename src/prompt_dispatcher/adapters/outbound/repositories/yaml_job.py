@@ -257,7 +257,7 @@ class YamlJobRepository:
             raise JobValidationError("research task query is required when web search is enabled")
         if not use_web_search and not web_search_sources and not weather_sources and not air_quality_sources and not kbo_sources and not job_collector_sources:
             raise JobValidationError(
-                "research task must enable web search or add a weather, KBO, or Job Collector source"
+                "research task must enable web search or add a weather, air quality, KBO, or Job Collector source"
             )
         time_range = str(raw.get("time_range", "day"))
         topic = str(raw.get("topic", "news"))
