@@ -41,10 +41,12 @@ logger = logging.getLogger(__name__)
 
 def _web_search_sources(task) -> tuple[WebSearchSource, ...]:
     """Return card-based sources, with a compatibility fallback for old YAML."""
-    if task.web_search_sources:
-        return task.web_search_sources
+    # The research-level toggle is authoritative.  This also prevents stale
+    # card settings from triggering Tavily after web search was unchecked.
     if not task.use_web_search:
         return ()
+    if task.web_search_sources:
+        return task.web_search_sources
     return (
         WebSearchSource(
             id=f"{task.id}_search",
