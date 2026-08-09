@@ -9,17 +9,18 @@ from apscheduler.triggers.cron import CronTrigger
 
 from prompt_dispatcher.domain.errors import JobValidationError
 from prompt_dispatcher.domain.job import (
+    AirQualitySource,
     ChannelDestination,
     ExecutionPolicy,
     Job,
     JobCollectorSource,
-    WebSearchSource,
     KboSource,
     OpenWebUiOptions,
     PromptDefinition,
     ResearchTask,
     Schedule,
     WeatherSource,
+    WebSearchSource,
 )
 
 
@@ -237,6 +238,10 @@ class YamlJobRepository:
         weather_sources = tuple(
             YamlJobRepository._map_weather_source(item) for item in raw.get("weather_sources", [])
         )
+        air_quality_sources = tuple(
+            YamlJobRepository._map_air_quality_source(item)
+            for item in raw.get("air_quality_sources", [])
+        )
         kbo_sources = tuple(
             YamlJobRepository._map_kbo_source(item) for item in raw.get("kbo_sources", [])
         )
@@ -250,7 +255,7 @@ class YamlJobRepository:
         )
         if use_web_search and not query and not web_search_sources:
             raise JobValidationError("research task query is required when web search is enabled")
-        if not use_web_search and not web_search_sources and not weather_sources and not kbo_sources and not job_collector_sources:
+        if not use_web_search and not web_search_sources and not weather_sources and not air_quality_sources and not kbo_sources and not job_collector_sources:
             raise JobValidationError(
                 "research task must enable web search or add a weather, KBO, or Job Collector source"
             )
@@ -292,9 +297,42 @@ class YamlJobRepository:
             bool(raw.get("include_raw_content", False)),
             use_web_search,
             weather_sources,
+            air_quality_sources,
             kbo_sources,
             job_collector_sources,
             web_search_sources,
+        )
+
+    @staticmethod
+    def _map_air_quality_source(raw: object) -> AirQualitySource:
+        if not isinstance(raw, dict):
+            raise JobValidationError("air_quality_sources must contain objects")
+        source_id = str(raw.get("id", ""))
+        if not source_id or not source_id.replace("_", "").replace("-", "").isalnum():
+            raise JobValidationError("air quality source id may use letters, numbers, hyphens, and underscores only")
+        address = str(raw["address"]).strip() if raw.get("address") else None
+        station_name = str(raw["station_name"]).strip() if raw.get("station_name") else None
+        latitude = longitude = None
+        if raw.get("latitude") is not None or raw.get("longitude") is not None:
+            try:
+                latitude, longitude = float(raw["latitude"]), float(raw["longitude"])
+            except (KeyError, TypeError, ValueError) as exc:
+                raise JobValidationError("air quality source latitude and longitude must be numbers") from exc
+            if not -90 <= latitude <= 90 or not -180 <= longitude <= 180:
+                raise JobValidationError("air quality source latitude or longitude is out of range")
+        if not address and not station_name:
+            raise JobValidationError("air quality source requires address or station_name")
+        if not bool(raw.get("include_realtime", True)) and not bool(raw.get("include_forecast", True)):
+            raise JobValidationError("air quality source must include realtime or forecast data")
+        return AirQualitySource(
+            source_id,
+            str(raw.get("name") or source_id),
+            address,
+            latitude,
+            longitude,
+            station_name,
+            bool(raw.get("include_realtime", True)),
+            bool(raw.get("include_forecast", True)),
         )
 
     @staticmethod

@@ -8,8 +8,8 @@ from prompt_dispatcher.adapters.outbound.channels.fake import FakeMessageChannel
 from prompt_dispatcher.adapters.outbound.channels.nextcloud_talk import NextcloudTalkChannel
 from prompt_dispatcher.adapters.outbound.channels.smtp_email import SmtpEmailChannel
 from prompt_dispatcher.adapters.outbound.channels.telegram import TelegramChannel
-from prompt_dispatcher.adapters.outbound.kbo.openapi import KboOpenApi
 from prompt_dispatcher.adapters.outbound.job_collector.client import JobCollectorClient
+from prompt_dispatcher.adapters.outbound.kbo.openapi import KboOpenApi
 from prompt_dispatcher.adapters.outbound.openwebui.cached_model_catalog import CachedModelCatalog
 from prompt_dispatcher.adapters.outbound.openwebui.http_adapter import HttpOpenWebUiAdapter
 from prompt_dispatcher.adapters.outbound.prompts.file_prompt_loader import FilePromptLoader
@@ -20,6 +20,7 @@ from prompt_dispatcher.adapters.outbound.repositories.yaml_job import YamlJobRep
 from prompt_dispatcher.adapters.outbound.search.tavily import TavilySearch
 from prompt_dispatcher.adapters.outbound.system.clock import SystemClock
 from prompt_dispatcher.adapters.outbound.templates.jinja_renderer import JinjaTemplateRenderer
+from prompt_dispatcher.adapters.outbound.weather.airkorea import AirKorea
 from prompt_dispatcher.adapters.outbound.weather.kma import KmaWeather
 from prompt_dispatcher.adapters.outbound.weather.open_meteo import OpenMeteoWeather
 from prompt_dispatcher.application.ports.message_channel import MessageChannelPort
@@ -159,6 +160,7 @@ def build_container(settings: Settings | None = None) -> ApplicationContainer:
         else OpenMeteoWeather()
     )
     kbo = KboOpenApi(settings.kbo_api_base_url, settings.kbo_admin_api_key)
+    air_quality = AirKorea(settings.airkorea_service_key)
     job_collector = JobCollectorClient(
         settings.job_collector_base_url, settings.job_collector_admin_api_key
     )
@@ -176,6 +178,7 @@ def build_container(settings: Settings | None = None) -> ApplicationContainer:
         weather,
         kbo,
         job_collector,
+        air_quality,
     )
     send_prompt = SendPrompt(openwebui, resolver, clock, tavily)
     return ApplicationContainer(

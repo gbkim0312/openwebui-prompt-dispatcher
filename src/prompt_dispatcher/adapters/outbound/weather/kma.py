@@ -232,8 +232,10 @@ class KmaWeather:
         ]
         if not applicable:
             return [
-                f"기상특보 ({source.name}): 최근 발표 목록에는 지역명이 명시된 {source.name} 특보가 없음. "
-                "지역명이 없는 특보 제목은 해당 지역에 적용되는 것으로 사용하지 마세요."
+                (
+                    f"기상특보 ({source.name}): 최근 발표 목록에는 지역명이 명시된 {source.name} 특보가 없음. "
+                    "지역명이 없는 특보 제목은 해당 지역에 적용되는 것으로 사용하지 마세요."
+                )
             ]
         return [
             f"기상특보 ({source.name}, 지역명 확인됨): " + "; ".join(

@@ -1,7 +1,8 @@
+from .air_quality import AirQualityPort
 from .clock import ClockPort
 from .execution_repository import ExecutionRepositoryPort
-from .job_repository import JobRepositoryPort
 from .job_collector import JobCollectorPort
+from .job_repository import JobRepositoryPort
 from .kbo import KboPort
 from .message_channel import MessageChannelPort
 from .model_catalog import ModelCatalogPort
@@ -12,10 +13,11 @@ from .template_renderer import TemplateRendererPort
 from .weather import WeatherPort
 
 __all__ = [
+    "AirQualityPort",
     "ClockPort",
     "ExecutionRepositoryPort",
-    "JobRepositoryPort",
     "JobCollectorPort",
+    "JobRepositoryPort",
     "KboPort",
     "MessageChannelPort",
     "ModelCatalogPort",

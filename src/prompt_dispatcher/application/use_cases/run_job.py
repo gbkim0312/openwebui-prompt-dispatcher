@@ -8,6 +8,7 @@ from prompt_dispatcher.adapters.outbound.search.tavily import TavilySearch
 from prompt_dispatcher.application.dto.commands import RunJobCommand
 from prompt_dispatcher.application.dto.results import RunJobResult
 from prompt_dispatcher.application.ports import (
+    AirQualityPort,
     ClockPort,
     ExecutionRepositoryPort,
     JobCollectorPort,
@@ -76,6 +77,7 @@ class RunJob:
         weather: WeatherPort | None = None,
         kbo: KboPort | None = None,
         job_collector: JobCollectorPort | None = None,
+        air_quality: AirQualityPort | None = None,
     ) -> None:
         self._jobs, self._prompts, self._renderer = job_repository, prompt_loader, template_renderer
         self._openwebui, self._executions, self._channels, self._clock = (
@@ -90,6 +92,7 @@ class RunJob:
         self._weather = weather
         self._kbo = kbo
         self._job_collector = job_collector
+        self._air_quality = air_quality
 
     def execute(self, command: RunJobCommand) -> RunJobResult:
         job = self._jobs.find_by_id(command.job_id)
@@ -177,6 +180,20 @@ class RunJob:
                             raise ValueError("Weather service is not configured")
                         weather_context.append(self._weather.fetch(source))
                     source_context: list[str] = []
+                    if task.air_quality_sources:
+                        if self._air_quality is None:
+                            raise ValueError("AirKorea is not configured")
+                        for air_source in task.air_quality_sources:
+                            logger.info(
+                                "event=air_quality_source_started job_id=%s execution_id=%s task_id=%s source_id=%s",
+                                job.id,
+                                execution.id,
+                                task.id,
+                                air_source.id,
+                            )
+                            source_context.append(
+                                "--- 구조화 대기질 데이터 ---\n" + self._air_quality.fetch(air_source)
+                            )
                     if task.kbo_sources:
                         if self._kbo is None:
                             raise ValueError("KBO OpenAPI is not configured")

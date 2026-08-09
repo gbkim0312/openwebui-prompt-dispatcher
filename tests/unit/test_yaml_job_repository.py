@@ -177,6 +177,44 @@ def test_weather_only_research_task_is_loaded(tmp_path) -> None:
     assert task.weather_sources[0].include_weekly is True
 
 
+def test_air_quality_only_research_task_is_loaded(tmp_path) -> None:
+    content = """
+version: 1
+id: air
+name: 대기질
+enabled: true
+schedule:
+  cron: 0 9 * * *
+  timezone: Asia/Seoul
+openwebui:
+  model: test-model
+prompt:
+  text: '{{ research_context }}'
+delivery:
+  channels:
+    - type: fake
+      target: test
+research:
+  tasks:
+    - id: air
+      name: 서울 대기질
+      query: ''
+      use_web_search: false
+      air_quality_sources:
+        - id: seoul-air
+          name: 서울 대기질
+          address: 서울
+          latitude: 37.5665
+          longitude: 126.978
+"""
+    (tmp_path / "air.job.yaml").write_text(content, encoding="utf-8")
+    repository = YamlJobRepository(tmp_path)
+
+    assert not repository.errors
+    source = repository.find_by_id("air").research_tasks[0].air_quality_sources[0]
+    assert source.address == "서울"
+
+
 def test_job_collector_only_research_task_is_loaded(tmp_path) -> None:
     (tmp_path / "jobs.job.yaml").write_text(
         '''\

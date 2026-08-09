@@ -14,9 +14,10 @@ from prompt_dispatcher.adapters.outbound.channels.nextcloud_talk import Nextclou
 from prompt_dispatcher.adapters.outbound.channels.smtp_email import SmtpEmailChannel
 from prompt_dispatcher.adapters.outbound.channels.telegram import TelegramChannel
 from prompt_dispatcher.adapters.outbound.geocoding.kakao import KakaoGeocoder
-from prompt_dispatcher.adapters.outbound.kbo.openapi import KboOpenApi
 from prompt_dispatcher.adapters.outbound.job_collector.client import JobCollectorClient
+from prompt_dispatcher.adapters.outbound.kbo.openapi import KboOpenApi
 from prompt_dispatcher.adapters.outbound.repositories.web_management import WebManagementStore
+from prompt_dispatcher.adapters.outbound.weather.airkorea import AirKorea
 from prompt_dispatcher.adapters.outbound.weather.kma import KmaWeather
 from prompt_dispatcher.adapters.outbound.weather.open_meteo import OpenMeteoWeather
 from prompt_dispatcher.application.dto.commands import RunJobCommand
@@ -27,7 +28,7 @@ from prompt_dispatcher.bootstrap.container import ApplicationContainer, build_co
 from prompt_dispatcher.bootstrap.settings import Settings
 from prompt_dispatcher.domain.delivery import DeliveryResult, OutboundMessage
 from prompt_dispatcher.domain.enums import DeliveryStatus
-from prompt_dispatcher.domain.job import ChannelDestination, WeatherSource
+from prompt_dispatcher.domain.job import AirQualitySource, ChannelDestination, WeatherSource
 
 logger = logging.getLogger(__name__)
 
@@ -333,6 +334,19 @@ def create_app(container: ApplicationContainer) -> FastAPI:
                                 }
                                 for source in task.weather_sources
                             ],
+                            "air_quality_sources": [
+                                {
+                                    "id": source.id,
+                                    "name": source.name,
+                                    "address": source.address,
+                                    "latitude": source.latitude,
+                                    "longitude": source.longitude,
+                                    "station_name": source.station_name,
+                                    "include_realtime": source.include_realtime,
+                                    "include_forecast": source.include_forecast,
+                                }
+                                for source in task.air_quality_sources
+                            ],
                             "kbo_sources": [
                                 {
                                     "id": source.id,
@@ -626,7 +640,7 @@ def create_app(container: ApplicationContainer) -> FastAPI:
 
     @app.post("/api/settings/test/{channel_type}")
     def test_connection(
-        channel_type: Literal["telegram", "nextcloud_talk", "email", "weather", "location", "kbo"]
+        channel_type: Literal["telegram", "nextcloud_talk", "email", "weather", "location", "kbo", "air_quality"]
     ) -> dict[str, str]:
         """Send a short real message using the settings currently saved by the UI."""
         values = store.read_values()
@@ -691,6 +705,24 @@ def create_app(container: ApplicationContainer) -> FastAPI:
             return {
                 "status": "ok",
                 "message": f"{settings.weather_engine} 엔진 연결에 성공했습니다.",
+                "preview": report,
+            }
+        if channel_type == "air_quality":
+            try:
+                report = AirKorea(settings.airkorea_service_key).fetch(
+                    AirQualitySource("seoul_air", "서울", "서울", 37.5665, 126.9780)
+                )
+            except Exception as error:
+                detail = str(error).replace("\n", " ")
+                logger.warning(
+                    "event=air_quality_test_failed error_type=%s error_message=%s",
+                    type(error).__name__,
+                    detail,
+                )
+                raise HTTPException(422, detail) from error
+            return {
+                "status": "ok",
+                "message": "AirKorea 대기질 API 연결에 성공했습니다.",
                 "preview": report,
             }
         message = OutboundMessage("Prompt Dispatcher 연결 테스트", "연결 테스트 메시지입니다.")

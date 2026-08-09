@@ -70,6 +70,7 @@ class ResearchTask:
     include_raw_content: bool = False
     use_web_search: bool = True
     weather_sources: "tuple[WeatherSource, ...]" = ()
+    air_quality_sources: "tuple[AirQualitySource, ...]" = ()
     kbo_sources: "tuple[KboSource, ...]" = ()
     job_collector_sources: "tuple[JobCollectorSource, ...]" = ()
     web_search_sources: "tuple[WebSearchSource, ...]" = ()
@@ -101,6 +102,18 @@ class WeatherSource:
     forecast_days: int = 2
     include_alerts: bool = False
     include_weekly: bool = False
+
+
+@dataclass(frozen=True)
+class AirQualitySource:
+    id: str
+    name: str
+    address: str | None = None
+    latitude: float | None = None
+    longitude: float | None = None
+    station_name: str | None = None
+    include_realtime: bool = True
+    include_forecast: bool = True
 
 
 @dataclass(frozen=True)
