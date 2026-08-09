@@ -148,7 +148,10 @@ class AirKorea:
         header = payload.get("response", {}).get("header", {})
         if str(header.get("resultCode", "00")) != "00":
             raise ValueError(f"AirKorea API error: {header.get('resultMsg', 'unknown error')}")
-        raw = payload.get("response", {}).get("body", {}).get("items", {}).get("item", [])
+        body = payload.get("response", {}).get("body", {})
+        raw = body.get("items", []) if isinstance(body, dict) else []
+        if isinstance(raw, dict):
+            raw = raw.get("item", [])
         if isinstance(raw, dict):
             return [raw]
         return raw if isinstance(raw, list) else []

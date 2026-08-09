@@ -67,3 +67,27 @@ def test_airkorea_reuses_station_and_realtime_cache() -> None:
     adapter.fetch(source)
 
     assert count == 2
+
+
+def test_airkorea_accepts_list_items_response() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path.endswith("getMsrstnList"):
+            items = [{"stationName": "종로구", "addr": "서울", "dmX": "37.57", "dmY": "127.00"}]
+        elif request.url.path.endswith("getMsrstnAcctoRltmMesureDnsty"):
+            items = [{"dataTime": "2026-08-10 08:00", "pm10Value": "18"}]
+        else:
+            items = []
+        return httpx.Response(
+            200,
+            json={"response": {"header": {"resultCode": "00"}, "body": {"items": items}}},
+        )
+
+    adapter = AirKorea("service-key", httpx.Client(transport=httpx.MockTransport(handler)))
+    source = AirQualitySource(
+        "seoul-list", "서울", address="서울", latitude=37.5665, longitude=126.9780, include_forecast=False
+    )
+
+    report = adapter.fetch(source)
+
+    assert "측정소: 종로구" in report
+    assert "PM10: 18 μg/m³" in report
