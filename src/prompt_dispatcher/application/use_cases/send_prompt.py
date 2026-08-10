@@ -1,14 +1,17 @@
 import logging
+import time
 from dataclasses import dataclass
 
 from prompt_dispatcher.adapters.outbound.search.tavily import TavilySearch
 from prompt_dispatcher.application.ports.clock import ClockPort
 from prompt_dispatcher.application.ports.openwebui import OpenWebUiPort
+from prompt_dispatcher.application.ports.model_catalog import ModelCatalogPort
 from prompt_dispatcher.application.services.channel_resolver import ChannelResolver
 from prompt_dispatcher.application.services.markdown import normalize_markdown_ranges
 from prompt_dispatcher.application.services.tavily_context import enrich_with_tavily
 from prompt_dispatcher.domain.delivery import OutboundMessage
-from prompt_dispatcher.domain.job import ChannelDestination, OpenWebUiRequest
+from prompt_dispatcher.domain.errors import OpenWebUiError
+from prompt_dispatcher.domain.job import ChannelDestination, OpenWebUiRequest, OpenWebUiResponse
 
 logger = logging.getLogger(__name__)
 
@@ -46,9 +49,15 @@ class SendPrompt:
         channel_resolver: ChannelResolver,
         clock: ClockPort,
         tavily: TavilySearch | None = None,
+        model_catalog: ModelCatalogPort | None = None,
+        openwebui_retry_count: int = 2,
+        openwebui_retry_delay_seconds: int = 15,
     ) -> None:
         self._openwebui, self._channels, self._clock = openwebui, channel_resolver, clock
         self._tavily = tavily
+        self._model_catalog = model_catalog
+        self._openwebui_retry_count = max(0, openwebui_retry_count)
+        self._openwebui_retry_delay_seconds = max(1, openwebui_retry_delay_seconds)
 
     def execute(self, command: SendPromptCommand) -> SendPromptResult:
         if not command.prompt.strip():
@@ -79,7 +88,7 @@ class SendPrompt:
             command.web_search_include_domains,
             command.web_search_exclude_domains,
         )
-        response = self._openwebui.generate(
+        response = self._generate_with_retry(
             OpenWebUiRequest(
                 command.model,
                 prompt,
@@ -131,3 +140,27 @@ class SendPrompt:
             len(failed),
         )
         return SendPromptResult(content, tuple(successful), tuple(failed))
+
+    def _generate_with_retry(self, request: OpenWebUiRequest) -> OpenWebUiResponse:
+        for attempt in range(self._openwebui_retry_count + 1):
+            try:
+                if self._model_catalog is not None:
+                    self._model_catalog.refresh()
+                return self._openwebui.generate(request)
+            except Exception as error:
+                wrapped = error if isinstance(error, OpenWebUiError) else OpenWebUiError(
+                    "Open WebUI model refresh failed"
+                )
+                if attempt >= self._openwebui_retry_count:
+                    if wrapped is error:
+                        raise
+                    raise wrapped from error
+                logger.warning(
+                    "event=instant_openwebui_retry model=%s attempt=%s delay_seconds=%s error=%s",
+                    request.model,
+                    attempt + 1,
+                    self._openwebui_retry_delay_seconds,
+                    str(wrapped).replace("\n", " "),
+                )
+                time.sleep(self._openwebui_retry_delay_seconds)
+        raise AssertionError("unreachable")

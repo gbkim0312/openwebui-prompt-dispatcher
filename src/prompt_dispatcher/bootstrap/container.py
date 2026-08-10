@@ -179,8 +179,18 @@ def build_container(settings: Settings | None = None) -> ApplicationContainer:
         kbo,
         job_collector,
         air_quality,
+        settings.openwebui_retry_count,
+        settings.openwebui_retry_delay_seconds,
     )
-    send_prompt = SendPrompt(openwebui, resolver, clock, tavily)
+    send_prompt = SendPrompt(
+        openwebui,
+        resolver,
+        clock,
+        tavily,
+        model_catalog,
+        settings.openwebui_retry_count,
+        settings.openwebui_retry_delay_seconds,
+    )
     return ApplicationContainer(
         settings,
         jobs,

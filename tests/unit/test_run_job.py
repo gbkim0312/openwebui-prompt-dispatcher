@@ -53,6 +53,16 @@ def test_run_job_retries_transient_openwebui_generation_error(monkeypatch) -> No
         execution_policy=ExecutionPolicy(retry_count=1, retry_delay_seconds=1),
     )
     client = FlakyClient()
+    class FakeCatalog:
+        revision = "test"
+        def __init__(self) -> None:
+            self.refresh_calls = 0
+        def refresh(self) -> bool:
+            self.refresh_calls += 1
+            return False
+        def list_models(self) -> tuple[str, ...]:
+            return ("model",)
+    catalog = FakeCatalog()
     monkeypatch.setattr("prompt_dispatcher.application.use_cases.run_job.time.sleep", lambda _: None)
 
     result = RunJob(
@@ -63,14 +73,15 @@ def test_run_job_retries_transient_openwebui_generation_error(monkeypatch) -> No
         InMemoryExecutionRepository(),
         ChannelResolver([FakeMessageChannel()]),
         FakeClock(datetime(2026, 1, 1, tzinfo=UTC)),
+        model_catalog=catalog,
+        openwebui_retry_count=1,
+        openwebui_retry_delay_seconds=1,
     ).execute(RunJobCommand("retry-job"))
 
     assert result.status == ExecutionStatus.SUCCESS
     assert client.calls == 2
-
-
-def test_run_job_does_not_retry_non_transient_bad_request() -> None:
-    assert not RunJob._is_retryable_openwebui_error(OpenWebUiError("HTTP 400: invalid request"))
+    # One preflight refresh plus one forced refresh for each generation attempt.
+    assert catalog.refresh_calls == 3
 
 
 def test_run_job_checks_model_before_tavily_search() -> None:
@@ -151,10 +162,12 @@ def test_run_job_retries_model_preflight_before_tavily(monkeypatch) -> None:
         ChannelResolver([FakeMessageChannel()]),
         FakeClock(datetime(2026, 1, 1, tzinfo=UTC)),
         model_catalog=catalog,
+        openwebui_retry_count=1,
+        openwebui_retry_delay_seconds=1,
     ).execute(RunJobCommand("preflight-retry"))
 
     assert result.status == ExecutionStatus.SUCCESS
-    assert catalog.calls == 2
+    assert catalog.calls == 3
 
 
 def test_run_job_delivers_and_records_success() -> None:

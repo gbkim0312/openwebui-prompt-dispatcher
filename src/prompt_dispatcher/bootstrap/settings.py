@@ -46,6 +46,8 @@ class Settings:
     openwebui_base_url: str
     openwebui_api_key: str
     openwebui_verify_tls: bool
+    openwebui_retry_count: int
+    openwebui_retry_delay_seconds: int
     http_host: str
     http_port: int
     enable_fake_channel: bool
@@ -96,6 +98,8 @@ class Settings:
             value("OPENWEBUI_BASE_URL", "http://localhost:8080"),
             value("OPENWEBUI_API_KEY"),
             _truth(os.getenv("OPENWEBUI_VERIFY_TLS", "true")),
+            max(0, min(10, int(managed_value("OPENWEBUI_RETRY_COUNT", "2")))),
+            max(1, min(600, int(managed_value("OPENWEBUI_RETRY_DELAY_SECONDS", "15")))),
             os.getenv("HTTP_HOST", "0.0.0.0"),
             int(os.getenv("HTTP_PORT", "8787")),
             _truth(os.getenv("ENABLE_FAKE_CHANNEL", "false")),

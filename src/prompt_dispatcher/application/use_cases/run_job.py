@@ -1,5 +1,4 @@
 import logging
-import re
 import time
 from datetime import datetime, timedelta
 from uuid import uuid4
@@ -80,6 +79,8 @@ class RunJob:
         kbo: KboPort | None = None,
         job_collector: JobCollectorPort | None = None,
         air_quality: AirQualityPort | None = None,
+        openwebui_retry_count: int = 2,
+        openwebui_retry_delay_seconds: int = 15,
     ) -> None:
         self._jobs, self._prompts, self._renderer = job_repository, prompt_loader, template_renderer
         self._openwebui, self._executions, self._channels, self._clock = (
@@ -95,6 +96,8 @@ class RunJob:
         self._kbo = kbo
         self._job_collector = job_collector
         self._air_quality = air_quality
+        self._openwebui_retry_count = max(0, openwebui_retry_count)
+        self._openwebui_retry_delay_seconds = max(1, openwebui_retry_delay_seconds)
 
     def execute(self, command: RunJobCommand) -> RunJobResult:
         job = self._jobs.find_by_id(command.job_id)
@@ -438,7 +441,7 @@ class RunJob:
         """Fail before paid external research when the selected Open WebUI model is unavailable."""
         if self._model_catalog is None:
             return
-        for attempt in range(job.execution_policy.retry_count + 1):
+        for attempt in range(self._openwebui_retry_count + 1):
             try:
                 self._model_catalog.refresh()
                 self._assert_models_available(
@@ -446,9 +449,9 @@ class RunJob:
                 )
                 return
             except OpenWebUiError as error:
-                if attempt >= job.execution_policy.retry_count:
+                if attempt >= self._openwebui_retry_count:
                     raise
-                delay = max(1, job.execution_policy.retry_delay_seconds)
+                delay = self._openwebui_retry_delay_seconds
                 logger.warning(
                     "event=model_preflight_retry job_id=%s attempt=%s delay_seconds=%s error=%s",
                     job.id,
@@ -458,12 +461,12 @@ class RunJob:
                 )
                 time.sleep(delay)
             except Exception as error:
-                if attempt >= job.execution_policy.retry_count:
+                if attempt >= self._openwebui_retry_count:
                     raise OpenWebUiError(
                         "Open WebUI model availability could not be verified; "
                         "Tavily search was not started"
                     ) from error
-                delay = max(1, job.execution_policy.retry_delay_seconds)
+                delay = self._openwebui_retry_delay_seconds
                 logger.warning(
                     "event=model_preflight_retry job_id=%s attempt=%s delay_seconds=%s error_type=%s",
                     job.id,
@@ -566,23 +569,23 @@ class RunJob:
     def _assert_single_model_available_with_retry(self, job: Job, model: str) -> None:
         if self._model_catalog is None:
             return
-        for attempt in range(job.execution_policy.retry_count + 1):
+        for attempt in range(self._openwebui_retry_count + 1):
             try:
                 self._model_catalog.refresh()
                 if model not in self._model_catalog.list_models():
                     raise OpenWebUiError(f"Open WebUI model not available: {model}")
                 return
             except OpenWebUiError:
-                if attempt >= job.execution_policy.retry_count:
+                if attempt >= self._openwebui_retry_count:
                     raise
-                time.sleep(max(1, job.execution_policy.retry_delay_seconds))
+                time.sleep(self._openwebui_retry_delay_seconds)
             except Exception as error:
-                if attempt >= job.execution_policy.retry_count:
+                if attempt >= self._openwebui_retry_count:
                     raise OpenWebUiError(
                         "Open WebUI model availability could not be verified; "
                         "Tavily search was not started"
                     ) from error
-                delay = max(1, job.execution_policy.retry_delay_seconds)
+                delay = self._openwebui_retry_delay_seconds
                 logger.warning(
                     "event=model_preflight_retry job_id=%s attempt=%s delay_seconds=%s error_type=%s",
                     job.id,
@@ -625,31 +628,34 @@ class RunJob:
         )
 
     def _generate_with_retry(self, request: OpenWebUiRequest, job: Job) -> OpenWebUiResponse:
-        policy = job.execution_policy
-        for attempt in range(policy.retry_count + 1):
+        for attempt in range(self._openwebui_retry_count + 1):
             try:
+                # A model can still be listed in a stale catalogue while its
+                # provider router is reconnecting. Force a fresh model load on
+                # every attempt, including retries after a generation failure.
+                if self._model_catalog is not None:
+                    self._model_catalog.refresh()
                 return self._openwebui.generate(request)
             except OpenWebUiError as error:
-                if attempt >= policy.retry_count or not self._is_retryable_openwebui_error(error):
+                wrapped = error
+            except Exception as error:
+                # Model catalogue refresh is Open WebUI infrastructure; retry it.
+                # Unexpected generation errors must retain their original behavior.
+                if self._model_catalog is None:
                     raise
-                delay = max(1, policy.retry_delay_seconds)
-                logger.warning(
-                    "event=openwebui_generation_retry job_id=%s model=%s attempt=%s delay_seconds=%s error=%s",
-                    job.id,
-                    request.model,
-                    attempt + 1,
-                    delay,
-                    str(error).replace("\n", " "),
-                )
-                time.sleep(delay)
+                wrapped = OpenWebUiError("Open WebUI model refresh failed")
+                if attempt >= self._openwebui_retry_count:
+                    raise wrapped from error
+            if attempt >= self._openwebui_retry_count:
+                raise wrapped
+            delay = self._openwebui_retry_delay_seconds
+            logger.warning(
+                "event=openwebui_generation_retry job_id=%s model=%s attempt=%s delay_seconds=%s error=%s",
+                job.id,
+                request.model,
+                attempt + 1,
+                delay,
+                str(wrapped).replace("\n", " "),
+            )
+            time.sleep(delay)
         raise AssertionError("unreachable")
-
-    @staticmethod
-    def _is_retryable_openwebui_error(error: OpenWebUiError) -> bool:
-        message = str(error).lower()
-        return (
-            "model not found" in message
-            or "timed out" in message
-            or "connection" in message
-            or re.search(r"http (408|409|425|429|5\d\d)", message) is not None
-        )

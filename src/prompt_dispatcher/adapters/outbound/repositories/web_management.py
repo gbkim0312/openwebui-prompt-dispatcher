@@ -71,6 +71,8 @@ class WebManagementStore:
         allowed = {
             "OPENWEBUI_BASE_URL",
             "OPENWEBUI_API_KEY",
+            "OPENWEBUI_RETRY_COUNT",
+            "OPENWEBUI_RETRY_DELAY_SECONDS",
             "NEXTCLOUD_URL",
             "TELEGRAM_PERSONAL_BOT_TOKEN",
             "TELEGRAM_PERSONAL_CHAT_ID",
@@ -111,6 +113,8 @@ class WebManagementStore:
         allowed = {
             "OPENWEBUI_BASE_URL",
             "OPENWEBUI_API_KEY",
+            "OPENWEBUI_RETRY_COUNT",
+            "OPENWEBUI_RETRY_DELAY_SECONDS",
             "NEXTCLOUD_URL",
             "TELEGRAM_PERSONAL_BOT_TOKEN",
             "TELEGRAM_PERSONAL_CHAT_ID",
