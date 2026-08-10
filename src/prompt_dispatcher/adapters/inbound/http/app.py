@@ -638,6 +638,26 @@ def create_app(container: ApplicationContainer) -> FastAPI:
             )
             raise HTTPException(422, detail) from error
 
+    @app.get("/api/air-quality/stations")
+    def air_quality_stations() -> dict[str, object]:
+        stations = store.read_air_quality_stations()
+        return {"items": stations, "cached": bool(stations)}
+
+    @app.post("/api/air-quality/stations/refresh")
+    def refresh_air_quality_stations() -> dict[str, object]:
+        settings = Settings.from_environment()
+        try:
+            stations = AirKorea(settings.airkorea_service_key).list_stations()
+            if not stations:
+                raise ValueError("AirKorea에서 측정소 목록을 받지 못했습니다.")
+            store.save_air_quality_stations(stations)
+            logger.info("event=air_quality_stations_refreshed count=%s", len(stations))
+            return {"items": stations, "message": f"측정소 {len(stations)}개를 저장했습니다."}
+        except Exception as error:
+            detail = str(error).replace("\n", " ")
+            logger.warning("event=air_quality_stations_refresh_failed error_type=%s", type(error).__name__)
+            raise HTTPException(422, detail) from error
+
     @app.post("/api/settings/test/{channel_type}")
     def test_connection(
         channel_type: Literal["telegram", "nextcloud_talk", "email", "weather", "location", "kbo", "air_quality"]

@@ -1,3 +1,4 @@
+import json
 import os
 import tempfile
 from collections.abc import Mapping
@@ -148,6 +149,20 @@ class WebManagementStore:
         self._write(
             self._secrets, "".join(f"{key}={value}\n" for key, value in sorted(old.items()))
         )
+
+    def read_air_quality_stations(self) -> list[dict[str, object]]:
+        path = self._secrets.parent / "airkorea_stations.json"
+        if not path.exists():
+            return []
+        try:
+            payload = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            return []
+        return payload if isinstance(payload, list) else []
+
+    def save_air_quality_stations(self, stations: list[dict[str, object]]) -> None:
+        path = self._secrets.parent / "airkorea_stations.json"
+        self._write(path, json.dumps(stations, ensure_ascii=False, separators=(",", ":")))
 
     def tail_log(self, limit: int = 200) -> list[str]:
         path = self._secrets.parent / "dispatcher.log"

@@ -46,6 +46,38 @@ class AirKorea:
         lines.append(f"출처: 한국환경공단 에어코리아 — {self._portal_url}")
         return "\n".join(lines)
 
+    def list_stations(self) -> list[dict[str, object]]:
+        """Return a stable, UI-friendly nationwide station catalogue.
+
+        Station names are not unique nationally (for example, there are several
+        ``중구`` stations), so the address and coordinates are retained with each
+        option.  This lets a saved research source select the same station later.
+        """
+        if not self._service_key:
+            raise ValueError("AIRKOREA_SERVICE_KEY is required when AirKorea is enabled")
+        stations: list[dict[str, object]] = []
+        for item in self._request(self._station_url, {"numOfRows": 10000, "pageNo": 1}):
+            name = str(item.get("stationName") or "").strip()
+            address = str(item.get("addr") or "").strip()
+            if not name:
+                continue
+            try:
+                latitude = float(item["dmX"])
+                longitude = float(item["dmY"])
+            except (KeyError, TypeError, ValueError):
+                latitude = longitude = None
+            stations.append(
+                {
+                    "id": f"{name}|{address}|{latitude or ''}|{longitude or ''}",
+                    "name": name,
+                    "address": address,
+                    "latitude": latitude,
+                    "longitude": longitude,
+                    "label": f"{address} · {name}" if address else name,
+                }
+            )
+        return sorted(stations, key=lambda station: str(station["label"]))
+
     def _station(self, source: AirQualitySource) -> dict[str, Any]:
         key = f"{source.address or ''}|{source.station_name or ''}|{source.latitude}|{source.longitude}"
         with self._lock:

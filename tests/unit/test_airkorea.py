@@ -105,3 +105,32 @@ def test_airkorea_does_not_expose_service_key_in_http_error() -> None:
         adapter.fetch(source)
 
     assert "secret-service-key" not in str(error.value)
+
+
+def test_airkorea_lists_station_catalogue_with_disambiguating_address() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        assert request.url.params["numOfRows"] == "10000"
+        return httpx.Response(
+            200,
+            json={
+                "response": {
+                    "header": {"resultCode": "00"},
+                    "body": {
+                        "items": {
+                            "item": [
+                                {"stationName": "중구", "addr": "대구광역시 중구", "dmX": "35.86", "dmY": "128.60"},
+                                {"stationName": "중구", "addr": "서울특별시 중구", "dmX": "37.56", "dmY": "126.97"},
+                            ]
+                        }
+                    },
+                }
+            },
+        )
+
+    adapter = AirKorea("service-key", httpx.Client(transport=httpx.MockTransport(handler)))
+
+    stations = adapter.list_stations()
+
+    assert stations[0]["label"] == "대구광역시 중구 · 중구"
+    assert stations[1]["label"] == "서울특별시 중구 · 중구"
+    assert stations[1]["latitude"] == 37.56
