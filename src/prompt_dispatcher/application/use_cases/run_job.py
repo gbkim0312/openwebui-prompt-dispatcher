@@ -485,6 +485,13 @@ class RunJob:
                 raise ValueError(f"Research task model is required: {task.id}")
             self._assert_single_model_available_with_retry(job, model)
         source_context: list[str] = []
+        if task.air_quality_sources:
+            if self._air_quality is None:
+                raise ValueError("AirKorea is not configured")
+            for source in task.air_quality_sources:
+                source_context.append(
+                    "--- 구조화 대기질 데이터 ---\n" + self._air_quality.fetch(source)
+                )
         if task.kbo_sources:
             if self._kbo is None:
                 raise ValueError("KBO OpenAPI is not configured")

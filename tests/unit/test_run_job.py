@@ -17,6 +17,7 @@ from prompt_dispatcher.application.use_cases.run_job import RunJob
 from prompt_dispatcher.domain.enums import ExecutionStatus
 from prompt_dispatcher.domain.errors import OpenWebUiError
 from prompt_dispatcher.domain.job import (
+    AirQualitySource,
     ChannelDestination,
     ExecutionPolicy,
     Job,
@@ -611,3 +612,46 @@ def test_research_test_runs_only_selected_task_without_delivery() -> None:
     assert content == "리서치 응답"
     assert len(client.requests) == 1
     assert channel.sent_messages == []
+
+
+def test_research_test_includes_air_quality_source_without_prompt() -> None:
+    class FakeAirQuality:
+        def fetch(self, source: AirQualitySource) -> str:
+            assert source.address == "서울"
+            return "서울 대기질\nPM2.5: 좋음"
+
+    job = Job(
+        "air-quality-test",
+        "Air quality test",
+        True,
+        Schedule("0 7 * * *", "UTC"),
+        OpenWebUiOptions("model"),
+        PromptDefinition(text="should not run"),
+        (ChannelDestination("fake", "one"),),
+        research_tasks=(
+            ResearchTask(
+                "seoul_air",
+                "서울 대기질",
+                "",
+                use_prompt=False,
+                use_web_search=False,
+                air_quality_sources=(AirQualitySource("seoul", "서울", address="서울"),),
+            ),
+        ),
+    )
+    client = FakeOpenWebUiClient("should not run")
+    use_case = RunJob(
+        InMemoryJobRepository([job]),
+        FakePromptLoader(),
+        JinjaTemplateRenderer(),
+        client,
+        InMemoryExecutionRepository(),
+        ChannelResolver([FakeMessageChannel()]),
+        FakeClock(datetime(2026, 1, 1, tzinfo=UTC)),
+        air_quality=FakeAirQuality(),  # type: ignore[arg-type]
+    )
+
+    content = use_case.test_research("air-quality-test", "seoul_air")
+
+    assert content == "--- 구조화 대기질 데이터 ---\n서울 대기질\nPM2.5: 좋음"
+    assert client.requests == []
