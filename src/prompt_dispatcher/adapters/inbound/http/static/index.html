@@ -571,6 +571,10 @@ organizeResearchDataSources();
 .research-search-fields{margin-top:10px;padding:14px;border-left:3px solid #1565c0;background:#f4f8fc}
 .research-search-fields h4{margin:0 0 12px}
 .research-input-sources{margin-top:4px}
+.weather-source-type-menu[hidden]{display:none!important}
+.weather-source-type-menu{display:grid;gap:4px}
+.weather-source-type-option{width:100%;padding:9px 11px;border:0;border-radius:6px;background:#fff;color:#22313d;text-align:left}
+.weather-source-type-option:hover{background:#edf4fb}
 </style><script>
 const showSettingsWithWeatherEngine=window.showSettings;
 async function saveSettingsCard(card){
@@ -782,8 +786,8 @@ function integrateAirQualityIntoWeatherSources(){
     if(!add||add.dataset.sourceTypeReady)return;
     add.dataset.sourceTypeReady='true';add.textContent='+ 자료 추가 ▾';
     const menu=document.createElement('div');menu.className='weather-source-type-menu';menu.hidden=true;
-    menu.innerHTML='<button type="button" data-source-type="weather">날씨 정보</button><button type="button" data-source-type="air-quality">대기질 정보</button>';
-    add.parentElement.style.position='relative';add.after(menu);
+    menu.innerHTML='<button type="button" class="weather-source-type-option" data-source-type="weather">날씨 정보</button><button type="button" class="weather-source-type-option" data-source-type="air-quality">대기질 정보</button>';
+    add.parentElement.style.position='relative';menu.style.cssText='position:absolute;z-index:40;right:0;top:calc(100% + 6px);min-width:170px;padding:6px;border:1px solid #c9d8e5;border-radius:8px;background:#fff;box-shadow:0 8px 20px #20304022';add.after(menu);
     const addWeather=()=>{const base=list.querySelector('.research-weather-fields');if(!base)return;const clone=base.cloneNode(true);clone.dataset.locationPickerReady='';clone.querySelector('.weather-location-picker')?.remove();clone.querySelector('.research-source-card-header')?.remove();clone.querySelectorAll('input').forEach(input=>{if(input.type==='checkbox')input.checked=input.defaultChecked;else input.value=''});clone.querySelectorAll('select').forEach(select=>select.selectedIndex=0);list.append(clone);decorateResearchWeatherLocation();return clone};
     const addAirQuality=()=>{list.insertAdjacentHTML('beforeend',airQualitySourceCard({},list.querySelectorAll('.research-air-quality-card').length));return list.lastElementChild};
     add.onclick=()=>{menu.hidden=!menu.hidden};
@@ -810,7 +814,7 @@ document.addEventListener('click',event=>{
   source.remove();
 });
 bindResearchSourceCardHeaders();
-function styleResearchSourceCards(){document.querySelectorAll('.research-web-sources-section,.research-weather-sources-section').forEach(section=>{section.style.cssText+=';margin-top:10px;padding:18px;border:1px solid #b9d9c0;border-radius:12px;background:#f5fbf6';const heading=section.querySelector('.research-source-section-heading');if(heading)heading.style.cssText+=';display:flex;align-items:center;justify-content:space-between;gap:12px';section.querySelectorAll('.research-web-source,.research-weather-fields,.research-air-quality-card').forEach(card=>{card.style.cssText+=';margin:0;padding:18px;border:1px solid #b9d9c0;border-radius:9px;background:#fff';card.style.borderLeft='1px solid #b9d9c0'})})}
+function styleResearchSourceCards(){document.querySelectorAll('.research-web-sources-section,.research-weather-sources-section').forEach(section=>{section.style.cssText+=';margin-top:10px;padding:18px;border:1px solid #b9d9c0;border-radius:12px;background:#f5fbf6';const heading=section.querySelector('.research-source-section-heading');if(heading)heading.style.cssText+=';display:flex;align-items:center;justify-content:space-between;gap:12px';const list=section.querySelector('.research-web-source-list,.research-weather-source-list');if(list)list.style.cssText+=';display:grid;gap:16px;margin-top:16px';section.querySelectorAll('.research-web-source,.research-weather-fields,.research-air-quality-card').forEach(card=>{card.style.cssText+=';margin:0;padding:18px;border:1px solid #b9d9c0;border-radius:9px;background:#fff';card.style.borderLeft='1px solid #b9d9c0'})})}
 styleResearchSourceCards();
 let researchSourceLayoutTimer;
 function refreshResearchSourceCards(){clearTimeout(researchSourceLayoutTimer);researchSourceLayoutTimer=setTimeout(()=>{upgradeWebAndWeatherSourceCards();hydrateAdditionalSourceCards();integrateAirQualityIntoWeatherSources();decorateResearchSourceCardHeaders();bindResearchSourceCardHeaders();styleResearchSourceCards();updateResearchDataSourceVisibility()},0)}
