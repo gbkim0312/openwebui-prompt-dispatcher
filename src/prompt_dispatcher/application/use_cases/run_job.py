@@ -183,19 +183,32 @@ class RunJob:
                         weather_context.append(self._weather.fetch(source))
                     source_context: list[str] = []
                     if task.air_quality_sources:
-                        if self._air_quality is None:
-                            raise ValueError("AirKorea is not configured")
                         for air_source in task.air_quality_sources:
-                            logger.info(
-                                "event=air_quality_source_started job_id=%s execution_id=%s task_id=%s source_id=%s",
-                                job.id,
-                                execution.id,
-                                task.id,
-                                air_source.id,
-                            )
-                            source_context.append(
-                                "--- 구조화 대기질 데이터 ---\n" + self._air_quality.fetch(air_source)
-                            )
+                            try:
+                                if self._air_quality is None:
+                                    raise ValueError("AirKorea is not configured")
+                                logger.info(
+                                    "event=air_quality_source_started job_id=%s execution_id=%s task_id=%s source_id=%s",
+                                    job.id,
+                                    execution.id,
+                                    task.id,
+                                    air_source.id,
+                                )
+                                source_context.append(
+                                    "--- 구조화 대기질 데이터 ---\n"
+                                    + self._air_quality.fetch(air_source)
+                                )
+                            except Exception as error:
+                                # Air quality is supplemental.  A temporary provider failure
+                                # must not discard weather/search data already collected.
+                                logger.warning(
+                                    "event=air_quality_source_failed job_id=%s execution_id=%s task_id=%s source_id=%s error_type=%s",
+                                    job.id,
+                                    execution.id,
+                                    task.id,
+                                    air_source.id,
+                                    type(error).__name__,
+                                )
                     if task.kbo_sources:
                         if self._kbo is None:
                             raise ValueError("KBO OpenAPI is not configured")
@@ -486,12 +499,21 @@ class RunJob:
             self._assert_single_model_available_with_retry(job, model)
         source_context: list[str] = []
         if task.air_quality_sources:
-            if self._air_quality is None:
-                raise ValueError("AirKorea is not configured")
             for source in task.air_quality_sources:
-                source_context.append(
-                    "--- 구조화 대기질 데이터 ---\n" + self._air_quality.fetch(source)
-                )
+                try:
+                    if self._air_quality is None:
+                        raise ValueError("AirKorea is not configured")
+                    source_context.append(
+                        "--- 구조화 대기질 데이터 ---" + "\n" + self._air_quality.fetch(source)
+                    )
+                except Exception as error:
+                    logger.warning(
+                        "event=air_quality_source_failed job_id=%s task_id=%s source_id=%s error_type=%s",
+                        job.id,
+                        task.id,
+                        source.id,
+                        type(error).__name__,
+                    )
         if task.kbo_sources:
             if self._kbo is None:
                 raise ValueError("KBO OpenAPI is not configured")

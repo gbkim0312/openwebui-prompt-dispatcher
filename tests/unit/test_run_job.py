@@ -655,3 +655,50 @@ def test_research_test_includes_air_quality_source_without_prompt() -> None:
 
     assert content == "--- 구조화 대기질 데이터 ---\n서울 대기질\nPM2.5: 좋음"
     assert client.requests == []
+
+
+def test_research_keeps_weather_context_when_air_quality_fails() -> None:
+    class FakeWeather:
+        def fetch(self, _: WeatherSource) -> str:
+            return "서울 날씨\n현재: 맑음"
+
+    class FailingAirQuality:
+        def fetch(self, _: AirQualitySource) -> str:
+            raise RuntimeError("provider temporarily unavailable")
+
+    job = Job(
+        "weather-with-air-quality",
+        "Weather with air quality",
+        True,
+        Schedule("0 7 * * *", "UTC"),
+        OpenWebUiOptions("model"),
+        PromptDefinition(text="{{ research.seoul }}"),
+        (ChannelDestination("fake", "one"),),
+        research_tasks=(
+            ResearchTask(
+                "seoul",
+                "서울 날씨",
+                "",
+                use_prompt=False,
+                use_web_search=False,
+                weather_sources=(WeatherSource("seoul", "서울", 37.5665, 126.9780),),
+                air_quality_sources=(AirQualitySource("seoul-air", "서울", address="서울"),),
+            ),
+        ),
+    )
+    client = FakeOpenWebUiClient("최종 결과")
+    result = RunJob(
+        InMemoryJobRepository([job]),
+        FakePromptLoader(),
+        JinjaTemplateRenderer(),
+        client,
+        InMemoryExecutionRepository(),
+        ChannelResolver([FakeMessageChannel()]),
+        FakeClock(datetime(2026, 1, 1, tzinfo=UTC)),
+        weather=FakeWeather(),  # type: ignore[arg-type]
+        air_quality=FailingAirQuality(),  # type: ignore[arg-type]
+    ).execute(RunJobCommand("weather-with-air-quality"))
+
+    assert result.status == ExecutionStatus.SUCCESS
+    assert "구조화 날씨 데이터" in client.requests[0].prompt
+    assert "서울 날씨\n현재: 맑음" in client.requests[0].prompt
