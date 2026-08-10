@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import datetime
 from math import hypot
 from threading import Lock
-from time import monotonic
+from time import monotonic, sleep
 from typing import Any, ClassVar
 from urllib.parse import unquote
 from zoneinfo import ZoneInfo
@@ -134,16 +134,34 @@ class AirKorea:
         ]
 
     def _request(self, url: str, params: dict[str, str | int]) -> list[dict[str, Any]]:
-        response = self._client.get(
-            url,
-            params={
-                "serviceKey": unquote(self._service_key),
-                "returnType": "json",
-                **params,
-            },
-            timeout=20,
-        )
-        response.raise_for_status()
+        response: httpx.Response | None = None
+        request_params = {
+            "serviceKey": unquote(self._service_key),
+            "returnType": "json",
+            **params,
+        }
+        for attempt in range(3):
+            try:
+                response = self._client.get(url, params=request_params, timeout=20)
+            except httpx.TimeoutException as error:
+                if attempt < 2:
+                    sleep(0.5 * (attempt + 1))
+                    continue
+                raise ValueError("AirKorea API request timed out. Please try again shortly.") from error
+            if response.status_code in {429, 500, 502, 503, 504}:
+                if attempt < 2:
+                    sleep(0.5 * (attempt + 1))
+                    continue
+                raise ValueError(
+                    f"AirKorea API is temporarily unavailable (HTTP {response.status_code}). Please try again shortly."
+                )
+            try:
+                response.raise_for_status()
+            except httpx.HTTPStatusError as error:
+                raise ValueError(f"AirKorea API request failed (HTTP {response.status_code}).") from error
+            break
+        if response is None:  # Defensive guard for type checkers and unexpected clients.
+            raise ValueError("AirKorea API did not return a response.")
         payload = response.json()
         header = payload.get("response", {}).get("header", {})
         if str(header.get("resultCode", "00")) != "00":

@@ -1,4 +1,5 @@
 import httpx
+import pytest
 
 from prompt_dispatcher.adapters.outbound.weather.airkorea import AirKorea
 from prompt_dispatcher.domain.job import AirQualitySource
@@ -91,3 +92,16 @@ def test_airkorea_accepts_list_items_response() -> None:
 
     assert "측정소: 종로구" in report
     assert "PM10: 18 μg/m³" in report
+
+
+def test_airkorea_does_not_expose_service_key_in_http_error() -> None:
+    adapter = AirKorea(
+        "secret-service-key",
+        httpx.Client(transport=httpx.MockTransport(lambda _: httpx.Response(401))),
+    )
+    source = AirQualitySource("seoul", "서울", address="서울", include_forecast=False)
+
+    with pytest.raises(ValueError, match=r"HTTP 401") as error:
+        adapter.fetch(source)
+
+    assert "secret-service-key" not in str(error.value)
